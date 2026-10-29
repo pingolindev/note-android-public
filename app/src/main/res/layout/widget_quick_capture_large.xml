@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Rich/tall layout for the Quick Capture widget — the Android 16
+  lock-screen form (~4x3 cell) and any tall home placement. Shows NO note
+  content (lock-screen safe): a brand header plus capture actions that
+  launch LockScreenCaptureActivity (showWhenLocked), so a thought can be
+  jotted without unlocking.
+
+  The OUTER FrameLayout is transparent with a top inset so the card clears
+  the status bar on the lock screen — RemoteViews can't read window insets,
+  and some lock-screen hosts place the widget region flush under the status
+  bar, which would make the header collide with the clock/notification
+  icons.
+
+  Action area uses layout_weight so it flexes between a medium home cell
+  and a tall lock-screen cell without clipping.
+
+  tools:ignore="UseAppTint": a RemoteViews layout, so only android:tint is
+  honoured — see the header of widget_quick_capture.xml.
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UseAppTint"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:paddingTop="30dp"
+    android:background="@android:color/transparent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:background="@drawable/widget_background">
+
+        <!-- Brand header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="14dp">
+
+            <ImageView
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:src="@drawable/ic_note"
+                android:tint="#FF89B4FA"
+                android:contentDescription="@null" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/app_name"
+                    android:textColor="#FFCDD6F4"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/widget_quick_capture_subtitle"
+                    android:textColor="#FF6C7086"
+                    android:textSize="12sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Primary action: New note (text) -->
+        <LinearLayout
+            android:id="@+id/btn_new_note"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1.4"
+            android:minHeight="52dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:background="@drawable/widget_capture_button_primary"
+            android:contentDescription="@string/widget_quick_capture_new_note">
+
+            <ImageView
+                android:layout_width="26dp"
+                android:layout_height="26dp"
+                android:src="@drawable/ic_add"
+                android:tint="#FF1E1E2E"
+                android:contentDescription="@null" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/widget_quick_capture_new_note"
+                    android:textColor="#FF1E1E2E"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/widget_quick_capture_new_note_desc"
+                    android:textColor="#CC1E1E2E"
+                    android:textSize="12sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Secondary actions row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="horizontal"
+            android:layout_marginTop="10dp">
+
+            <!-- Checklist (over the lock screen) -->
+            <LinearLayout
+                android:id="@+id/btn_new_checklist"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:minHeight="52dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_capture_button"
+                android:contentDescription="@string/widget_quick_capture_new_checklist">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_checklist"
+                    android:tint="#FF89B4FA"
+                    android:contentDescription="@null" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/widget_quick_capture_checklist_short"
+                    android:textColor="#FFCDD6F4"
+                    android:textSize="13sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+
+            <!-- All notes (opens the app; requires unlock) -->
+            <LinearLayout
+                android:id="@+id/btn_all_notes"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:minHeight="52dp"
+                android:layout_marginStart="10dp"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:background="@drawable/widget_capture_button"
+                android:contentDescription="@string/widget_quick_capture_all_notes">
+
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:src="@drawable/ic_notebook"
+                    android:tint="#FF89B4FA"
+                    android:contentDescription="@null" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/widget_quick_capture_all_notes"
+                    android:textColor="#FFCDD6F4"
+                    android:textSize="13sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+            </LinearLayout>
+        </LinearLayout>
+
+    </LinearLayout>
+</FrameLayout>

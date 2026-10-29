@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Status-bar icon polarity, paired with `android:statusBarColor` =
+         @color/surface in Theme.PingolinNote.
+
+         Day surface is #fafafa (values/colors.xml), so the icons must be DARK
+         to be legible: `windowLightStatusBar` means "the bar is light, darken
+         the icons". values-night flips it for the #1a1a2e surface.
+
+         This lives in a bool resource rather than a values-night/themes.xml
+         override so there is exactly one theme definition to keep in step;
+         only the polarity varies by configuration. -->
+    <bool name="window_light_status_bar">true</bool>
+</resources>

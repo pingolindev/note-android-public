@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Night surface is #1a1a2e, so the status-bar icons stay light.
+         See values/bools.xml for why this is a bool and not a theme override. -->
+    <bool name="window_light_status_bar">false</bool>
+</resources>

@@ -1,0 +1,40 @@
+# Gradle
+.gradle/
+**/build/
+!src/**/build/
+/local.properties
+
+# Kotlin build-tools scratch (session state and compiler error logs)
+.kotlin/
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Firebase config (local dev) and signing material — never commit
+app/google-services.json
+**/google-services.json
+*.jks
+*.keystore
+!debug.keystore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Kotlin / Java
+*.class
+*.kotlin_module
+hs_err_pid*
+
+# Logs
+*.log
+
+# The Note web editor, copied in at build time as an offline fallback. A build
+# artifact from the web editor's own repository — committing it would put a
+# second copy of the editor in this repo's history and let the two drift
+# silently.
+/app/src/main/assets/webapp/

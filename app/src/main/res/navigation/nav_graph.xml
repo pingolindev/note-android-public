@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/routerHostFragment">
+
+    <fragment
+        android:id="@+id/routerHostFragment"
+        android:name="com.pingolin.note.ui.RouterHostFragment"
+        android:label="Pingolin Note" />
+
+    <fragment
+        android:id="@+id/settingsFragment"
+        android:name="com.pingolin.note.ui.settings.SettingsFragment"
+        android:label="Settings">
+
+        <action
+            android:id="@+id/action_settings_to_licenses"
+            app:destination="@id/licensesFragment" />
+    </fragment>
+
+    <fragment
+        android:id="@+id/licensesFragment"
+        android:name="com.pingolin.note.ui.settings.LicensesFragment"
+        android:label="Open source licenses" />
+
+</navigation>

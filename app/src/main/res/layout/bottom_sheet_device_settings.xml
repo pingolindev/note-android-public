@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Device-settings sheet.
+
+  Deliberately shaped like the web Settings panel it is opened from: a
+  rounded surface layered OVER the page (which stays visible behind it)
+  rather than a screen that replaces it, a single group of controls, and a
+  title in the panel's own section-heading style. Tapping a Device row in
+  the page should read as that row opening, not as leaving for another menu.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingBottom="8dp">
+
+    <!-- Grabber: the affordance that says "this is a layer you can pull
+         away", which a pushed screen cannot offer. -->
+    <View
+        android:layout_width="32dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/device_sheet_grabber" />
+
+    <TextView
+        android:id="@+id/tvDeviceSheetTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginBottom="6dp"
+        android:textSize="13sp"
+        android:textAllCaps="true"
+        android:letterSpacing="0.04"
+        android:textStyle="bold"
+        android:textColor="?android:attr/textColorSecondary" />
+
+    <TextView
+        android:id="@+id/tvDeviceSheetSubtitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginBottom="8dp"
+        android:text="@string/device_sheet_subtitle"
+        android:textAppearance="?attr/textAppearanceBodySmall"
+        android:textColor="?android:attr/textColorSecondary" />
+
+    <!-- The section itself is the SAME fragment the full screen uses, in
+         focused mode — so the controls, their dialogs and their wiring exist
+         once, not twice. -->
+    <androidx.fragment.app.FragmentContainerView
+        android:id="@+id/deviceSheetContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+</LinearLayout>

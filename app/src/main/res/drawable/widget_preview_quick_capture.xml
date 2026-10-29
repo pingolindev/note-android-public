@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Picker preview for the Quick Capture widget.
+
+  ## Why this file exists at all
+
+  Each widget declares `android:previewLayout`, which is API 31+, so on
+  anything older the picker would fall back to the application icon: all three
+  Pingolin Note widgets would appear as the same generic launcher icon, giving
+  a user no way to tell them apart or see what they were adding.
+  `android:previewImage` is what everything below API 31 shows; previewLayout
+  stays for API 31+, which renders the real thing.
+
+  A layer-list rather than a PNG so it stays in the repo as text, reuses the
+  widget's own background drawable, and cannot drift out of sync with the
+  card's corner radius the way an exported bitmap would.
+
+  The glyphs are untinted (their own white fill): a layer-list <item> has no
+  tint attribute, and the alternatives — duplicating the path data into tinted
+  vector copies, or shipping PNGs — cost more than the preview's accent is
+  worth. White on the dark card reads correctly; only the blue is missing.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:drawable="@drawable/widget_background" />
+
+    <!-- Brand mark, left, echoing the compact layout's start inset. -->
+    <item
+        android:drawable="@drawable/ic_note"
+        android:gravity="start|center_vertical"
+        android:start="16dp"
+        android:width="28dp"
+        android:height="28dp" />
+
+    <!-- The two actions, right, in the order and spacing the widget uses. -->
+    <item
+        android:drawable="@drawable/ic_add"
+        android:gravity="end|center_vertical"
+        android:end="72dp"
+        android:width="24dp"
+        android:height="24dp" />
+
+    <item
+        android:drawable="@drawable/ic_checklist"
+        android:gravity="end|center_vertical"
+        android:end="20dp"
+        android:width="24dp"
+        android:height="24dp" />
+
+</layer-list>

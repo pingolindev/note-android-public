@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Camera captures and decrypted attachment previews live in cacheDir.
+         Only cacheDir is shared via FileProvider; filesDir (which holds the
+         encrypted collab CRDT state and crash logs) is deliberately NOT exposed. -->
+    <cache-path name="cache" path="." />
+</paths>

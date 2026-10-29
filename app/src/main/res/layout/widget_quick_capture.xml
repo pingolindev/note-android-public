@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ⚠️ android:tint, never app:tint, anywhere in a widget layout.
+
+  `app:tint` is the AppCompat attribute. The launcher inflates RemoteViews
+  with a plain framework LayoutInflater, with no AppCompat view factory, so it
+  is parsed and thrown away — silently, with no warning at build or run time —
+  and every widget glyph renders untinted in its drawable's own fillColor
+  (pure #FFFFFF here, instead of the declared #FF89B4FA / #FFCDD6F4). The
+  framework attribute is honoured at inflation and needs no RemoteViews call.
+
+  Lint's UseAppTint check (an ERROR) cannot tell a widget layout from an
+  Activity one, so every widget layout carries tools:ignore="UseAppTint" on
+  its root. Do not "fix" them with the autofix; that brings the white icons
+  back.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:ignore="UseAppTint"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:padding="8dp"
+    android:background="@drawable/widget_background">
+
+    <ImageView
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:src="@drawable/ic_note"
+        android:tint="#FF89B4FA"
+        android:layout_marginStart="8dp"
+        android:contentDescription="@string/app_name" />
+
+    <!-- Weighted spacer. Must be a @RemoteView class: a bare <View> is
+         rejected by the host's RemoteViews-filtered inflater (it's what the
+         widget falls back to when the app process is briefly unavailable),
+         which showed "Can't load widget". An empty TextView is allowed. -->
+    <TextView
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1" />
+
+    <!-- 48dp with 8dp between them, not 44dp edge to edge: with no gap between
+         the two buttons, a thumb that lands a hair right of centre creates a
+         checklist instead of a note. 48dp is the Android floor and 8dp is
+         Material's minimum separation between adjacent targets. -->
+    <ImageButton
+        android:id="@+id/btn_new_note"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_add"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/widget_quick_capture_new_note"
+        android:tint="#FFCDD6F4" />
+
+    <ImageButton
+        android:id="@+id/btn_new_checklist"
+        android:layout_width="48dp"
+        android:layout_height="48dp"
+        android:src="@drawable/ic_checklist"
+        android:background="?android:attr/selectableItemBackgroundBorderless"
+        android:contentDescription="@string/widget_quick_capture_new_checklist"
+        android:layout_marginStart="8dp"
+        android:layout_marginEnd="4dp"
+        android:tint="#FFCDD6F4" />
+
+</LinearLayout>

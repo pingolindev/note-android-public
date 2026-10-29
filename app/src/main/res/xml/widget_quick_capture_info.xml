@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Quick Capture stays lock-screen eligible (no not_keyguard): it shows no note
+  content, only "New note" / "New checklist" actions, so it's safe on the
+  keyguard. On Android 16 it appears on the lock screen by default; the
+  provider serves a compact bar when short and a full card
+  (widget_quick_capture_large) when tall — see QuickCaptureWidgetProvider.
+
+  minHeight is 64dp: the compact layout is a 48dp action button inside 8dp of
+  padding, so a smaller value (40dp) would be below the layout's own intrinsic
+  height and a host that honoured it would squash the buttons below the touch
+  floor.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="64dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:maxResizeWidth="360dp"
+    android:maxResizeHeight="320dp"
+    android:resizeMode="horizontal|vertical"
+    android:initialLayout="@layout/widget_quick_capture"
+    android:previewImage="@drawable/widget_preview_quick_capture"
+    android:widgetCategory="home_screen"
+    android:previewLayout="@layout/widget_quick_capture"
+    android:description="@string/widget_quick_capture_description" />

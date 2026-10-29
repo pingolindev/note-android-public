@@ -1,0 +1,259 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+
+    <application
+        android:name=".NoteApplication"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.PingolinNote"
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <!-- Main app activity -->
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Share-into-app: receive text shared from other apps and open
+                 the editor pre-filled (counterpart of the iOS app's
+                 NoteShareExt).
+
+                 Signed out, the payload is stashed by PendingShareStore before
+                 the auth gate and drained on the first signed-in launch, and
+                 the sign-in screen says the text is being held. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- No image/* filter, deliberately. Nothing hands a received content
+                 URI to the page's attachment upload
+                 (WebAppActivity.onShowFileChooser only answers a picker the PAGE
+                 opened), so declaring the filter would put Note in the share sheet
+                 and then drop the image silently — the very loss PendingShareStore
+                 exists to prevent for text. -->
+        </activity>
+
+        <!-- Auth / login + sign-up activity. exported=true so the
+             verify-email deep links can re-launch it from the
+             browser. singleTop so an already-running instance
+             handles the new intent in onNewIntent instead of
+             stacking. -->
+        <!-- adjustResize, not the platform default: with no mode declared the
+             window keeps its full height with the IME up (observed on API 30),
+             which puts part of "Sign In" and ALL of "Sign Up" / "Forgot your
+             password?" under the keyboard — and the form cannot be scrolled to
+             reach them, because fillViewport on a shorter-than-viewport child
+             leaves a scroll range of zero (`scrollable="false"` in the a11y
+             tree). The recovery link is the only thing on the phone that tells
+             a phone-first user the way back into a locked-out account exists. -->
+        <activity
+            android:name=".ui.auth.AuthActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.PingolinNote">
+            <!-- HTTPS verify-email deep link — auto-verified via
+                 the assetlinks.json served by the auth host. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="${authDeepLinkHost}"
+                    android:pathPrefix="/verify-email" />
+            </intent-filter>
+            <!-- Custom-scheme fallback for environments where the
+                 https handler isn't registered (older Android,
+                 alternate browsers). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="note"
+                    android:host="verify-email" />
+            </intent-filter>
+        </activity>
+
+        <!-- There is no native import Activity: import runs in the page (Settings
+             → Import notes). The parsers and ImportRepository are deliberately
+             part of the app: they are unit-tested and encode provider-specific
+             behaviour, and BackupFormat is used by SettingsViewModel's export. -->
+
+        <!-- Widget configuration activity -->
+        <activity
+            android:name=".widget.SingleNoteConfigActivity"
+            android:exported="false"
+            android:theme="@style/Theme.PingolinNote">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
+
+        <!-- Lock screen capture activity -->
+        <!-- Shows over the lock screen for full note editing without unlocking -->
+        <activity
+            android:name=".ui.LockScreenCaptureActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.PingolinNote.LockScreen"
+            android:windowSoftInputMode="stateVisible|adjustResize" />
+
+        <!-- Web app host. Runs the Note web editor in a WebView, so the editor
+             gets CodeMirror's viewport virtualisation and stays responsive on
+             large notes.
+             adjustResize is required: the editor has to shrink above the IME
+             rather than be covered by it. -->
+        <activity
+            android:name=".ui.web.WebAppActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Firebase Cloud Messaging is declared in src/gms/AndroidManifest.xml,
+             not here: the libre distribution flavour ships no Firebase, and a
+             <service> pointing at a class that variant does not compile would
+             be a manifest reference to a missing class. -->
+
+
+        <!-- UnifiedPush receiver — alternate push path when a distributor
+             (ntfy, NextPush, …) is installed. PushNotificationManager
+             auto-selects this provider over FCM when available. -->
+        <receiver
+            android:name=".service.NoteUnifiedPushReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="org.unifiedpush.android.connector.MESSAGE" />
+                <action android:name="org.unifiedpush.android.connector.UNREGISTERED" />
+                <action android:name="org.unifiedpush.android.connector.NEW_ENDPOINT" />
+                <action android:name="org.unifiedpush.android.connector.REGISTRATION_FAILED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick Settings tile for instant capture -->
+        <service
+            android:name=".service.QuickCaptureTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_note"
+            android:label="Quick Note"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <!-- Unpin action from pinned note notifications -->
+        <receiver
+            android:name=".service.PinnedNoteActionReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.pingolin.note.ACTION_UNPIN" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Reminder notification receiver -->
+        <receiver
+            android:name=".receiver.ReminderReceiver"
+            android:exported="false" />
+
+        <!-- Restore notifications and sync after device boot -->
+        <receiver
+            android:name=".receiver.BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Quick Capture Widget -->
+        <receiver
+            android:name=".widget.QuickCaptureWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_quick_capture_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_capture_info" />
+        </receiver>
+
+        <!-- Note List Widget -->
+        <receiver
+            android:name=".widget.NoteListWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_note_list_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_note_list_info" />
+        </receiver>
+
+        <!-- Note List Widget RemoteViews service -->
+        <service
+            android:name=".widget.NoteListRemoteViewsService"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <!-- Single Note Widget -->
+        <receiver
+            android:name=".widget.SingleNoteWidgetProvider"
+            android:exported="true"
+            android:label="@string/widget_single_note_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_single_note_info" />
+        </receiver>
+
+        <!-- WorkManager init (custom Configuration via NoteApplication) -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
+        <!-- FileProvider for camera capture and attachment sharing -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>

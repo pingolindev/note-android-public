@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Pingolin Note</string>
+
+    <!-- Premium / subscription tier -->
+    <string name="premium_sheet_title">Pingolin Note Premium</string>
+    <string name="premium_sheet_intro">Premium unlocks the three limits below.</string>
+    <string name="premium_feature_storage_title">10 GB attachment storage</string>
+    <string name="premium_feature_storage_body">Free plan caps at 100 MB total.</string>
+    <string name="premium_feature_sharing_title">Share notes and notebooks</string>
+    <string name="premium_feature_sharing_body">End-to-end encrypted, per recipient.</string>
+    <string name="premium_feature_reminders_title">Reminders</string>
+    <string name="premium_feature_reminders_body">Push and email notifications on a schedule.</string>
+    <!-- Informational only — no tappable external-purchase route (Play anti-steering), matching the iOS
+         app. -->
+    <string name="premium_sheet_manage">Manage your plan at pingolin.com</string>
+    <string name="premium_sheet_dismiss">Got it</string>
+
+    <!-- Widgets -->
+    <string name="widget_quick_capture_description">Create notes and checklists instantly — even from the lock screen</string>
+    <string name="widget_note_list_description">Scrollable list of your recent and pinned notes</string>
+    <string name="widget_single_note_description">Display a single note on your home screen</string>
+    <string name="widget_quick_capture_label">Quick Capture</string>
+    <string name="widget_note_list_label">Note List</string>
+    <string name="widget_single_note_label">Pinned Note</string>
+    <string name="widget_quick_capture_subtitle">Capture without unlocking</string>
+    <string name="widget_quick_capture_new_note">New note</string>
+    <string name="widget_quick_capture_new_note_desc">Jot a quick thought</string>
+    <string name="widget_quick_capture_new_checklist">New checklist</string>
+    <string name="widget_quick_capture_checklist_short">Checklist</string>
+    <string name="widget_quick_capture_all_notes">All notes</string>
+
+    <!-- App Lock (PIN + biometric + backup PIN) -->
+    <string name="app_lock_pin">Secure with PIN</string>
+    <string name="app_lock_pin_description">Use a 4-digit PIN to lock the app</string>
+    <string name="app_lock_biometrics">Use biometrics</string>
+    <string name="app_lock_biometrics_description">Use fingerprint or face to unlock</string>
+    <string name="app_lock_enter_pin">Enter PIN</string>
+    <string name="app_lock_confirm_pin">Confirm PIN</string>
+    <string name="app_lock_pin_mismatch">PINs do not match</string>
+    <string name="app_lock_pin_set">PIN lock enabled</string>
+    <string name="app_lock_pin_removed">PIN lock disabled</string>
+    <string name="app_lock_biometrics_enabled">Biometric lock enabled</string>
+    <string name="app_lock_biometrics_disabled">Biometric lock disabled</string>
+    <string name="app_lock_biometrics_unavailable">Biometric authentication unavailable</string>
+    <string name="app_lock_no_hardware">Device doesn\'t support biometrics</string>
+    <string name="app_lock_none_enrolled">No biometrics enrolled on device</string>
+    <string name="app_lock_hardware_unavailable">Biometric hardware unavailable</string>
+
+    <!-- Account recovery (Settings → Account recovery, and the sign-in screen).
+         Both are link-outs to the web account portal: nothing here performs a
+         reset. The wording mirrors the portal's own so the two screens do not
+         describe the same feature differently — in particular that a recovery
+         address restores ACCOUNT ACCESS, and that encrypted notes still need
+         the recovery key. -->
+    <!-- Deliberately short. This is the state almost every account is in, so
+         it is on screen for almost everyone: a two-line bold red paragraph
+         here would be the loudest thing in Settings and drown the
+         explanation below it. The state gets the emphasis; the mechanism
+         ("only while signed in") lives in the neutral description, where it
+         is true in every state. -->
+    <string name="recovery_no_browser">No browser available</string>
+    <string name="forgot_password">Forgot your password?</string>
+
+    <!-- Sign-in screen. Kept here rather than hard-coded in
+         activity_auth.xml, so the screen every user sees first can be
+         translated. -->
+    <string name="auth_title">Welcome Back</string>
+    <string name="auth_subtitle">Sign in to continue</string>
+    <!-- Replaces auth_subtitle when text was shared into the app while signed
+         out: saying the text is held is the difference between a broken app
+         and a promise kept. -->
+    <string name="auth_subtitle_pending_share">Sign in to save the text you shared</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_sign_in">Sign In</string>
+    <string name="auth_switch_to_sign_up">Don\'t have an account? Sign Up</string>
+    <string name="auth_no_browser">No browser available</string>
+    <string name="auth_verify_title">Verify Your Email</string>
+    <string name="auth_verify_subtitle">We\'ve sent a verification link to your email address. Please check your inbox and click the link to verify your account.</string>
+    <string name="auth_open_email_app">Open Email App</string>
+    <string name="auth_resend_verification">Resend Verification Email</string>
+    <string name="auth_waiting_for_verification">Waiting for verification…</string>
+    <string name="auth_skip_for_now">Skip for now</string>
+    <string name="auth_invalid_verification_link">Invalid verification link</string>
+    <string name="auth_no_email_app">No email app found</string>
+    <string name="auth_email_verified">Email verified successfully!</string>
+    <string name="auth_2fa_title">Two-factor authentication</string>
+    <string name="auth_2fa_message">Enter the 6-digit code from your authenticator app, or one of your backup codes.</string>
+    <string name="auth_2fa_hint">Code</string>
+    <string name="auth_2fa_content_description">Two-factor code</string>
+    <string name="auth_2fa_verify">Verify</string>
+    <string name="auth_2fa_short_code">Enter all six digits</string>
+    <!-- The account's second step is a passkey only. Same words as the
+         other apps; do not paraphrase per platform. -->
+    <string name="auth_2fa_passkey_only">This account\'s second step uses a passkey, which this app can\'t use yet. Add an authenticator app in your account settings, or sign in on the web.</string>
+    <!-- SRP succeeded but the vault / sharing keys could not be set up. -->
+    <string name="auth_keys_unavailable">Couldn\'t open your notes on this device. Please sign in again.</string>
+    <string name="cancel">Cancel</string>
+
+    <!-- About / third-party attribution -->
+    <string name="about">About</string>
+    <string name="open_source_licenses">Open source licenses</string>
+    <string name="open_source_licenses_summary">Licences for the components this app includes</string>
+
+    <!-- The attachment badge is the ONLY signal that a note has an attachment —
+         there is no adjacent text — so it needs a real description rather than
+         being marked decorative. -->
+    <!-- Lock-screen quick capture (the minimal over-keyguard form) -->
+    <string name="lock_capture_title_hint">Title</string>
+    <string name="lock_capture_body_hint">Note</string>
+    <string name="lock_capture_mode_note">NEW NOTE</string>
+    <string name="lock_capture_mode_checklist">NEW CHECKLIST</string>
+    <string name="lock_capture_checklist_title_hint">Checklist title</string>
+    <string name="lock_capture_checklist_item_hint">List item</string>
+    <string name="lock_capture_checklist_check">Mark checklist item</string>
+    <string name="lock_capture_add_item">Add item</string>
+    <string name="lock_capture_remove_item">Remove item</string>
+    <string name="lock_capture_save">Save</string>
+    <string name="lock_capture_discard">Discard</string>
+    <string name="lock_capture_saved">Saved — syncs after unlock</string>
+    <string name="lock_capture_save_failed">Couldn\'t save. Sign in to the app first.</string>
+
+    <string name="device_sheet_subtitle">Set on this device only.</string>
+    <string name="device_sheet_title_security">Security</string>
+    <string name="device_sheet_title_notifications">Notifications on this device</string>
+    <string name="device_sheet_title_diagnostics">Diagnostics</string>
+    <string name="device_sheet_title_about">About</string>
+    <string name="device_sheet_title_account">Account</string>
+    <!-- Per-section subtitles. The single "Set on this device only." is true of
+         app lock and push transport and flatly wrong above account deletion,
+         which applies to every device the account is signed in on. -->
+    <string name="device_sheet_subtitle_about">Version and open source licences.</string>
+    <string name="device_sheet_subtitle_account">These apply to your whole account, on every device.</string>
+    <string name="settings_version">Version %1$s (%2$d)</string>
+    <!-- Notification channel + reminder copy, defined once here. -->
+    <string name="notification_channel_reminders">Reminders</string>
+    <string name="notification_channel_reminders_description">Note reminder notifications</string>
+    <string name="reminder_notification_title">Note reminder</string>
+    <string name="settings_delete_account">Delete Account</string>
+    <string name="app_lock_block_screenshots">Block screenshots</string>
+    <string name="app_lock_block_screenshots_description">Hide note content in screenshots and the app switcher</string>
+</resources>
