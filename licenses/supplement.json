@@ -1,0 +1,125 @@
+{
+  "_comment": [
+    "Hand-maintained facts the POM metadata cannot express, merged into",
+    "THIRD_PARTY_LICENSES.md by the `generateThirdPartyLicenses` Gradle task.",
+    "",
+    "Five kinds of entry:",
+    "  overrides  - a dependency whose POM <licenses> block is absent, empty or wrong.",
+    "  elections  - a dual/multi-licensed dependency, recording which licence we take.",
+    "  proprietary - components that are NOT open source; listed for completeness",
+    "               because they ship in the APK, but they carry no OSS grant.",
+    "  embedded   - upstream projects vendored INSIDE a dependency's own native",
+    "               library. They are not separate artifacts, so no classpath or",
+    "               crate scan can reach them, but their code ships all the same.",
+    "  vendored   - upstream projects whose SOURCE is copied into THIS repository and",
+    "               built here rather than consumed as a published artifact. Also",
+    "               invisible to a classpath scan, but the obligation is wider: we",
+    "               redistribute their source and may have modified it, so each entry",
+    "               records the path and whether it was changed.",
+    "",
+    "Keys are Maven coordinates WITHOUT the version (embedded and vendored entries are",
+    "keyed on a project name instead, having no coordinate), so a version bump does not",
+    "silently drop the entry. The task fails the build if an override no longer",
+    "matches anything on the classpath, so stale entries surface instead of rotting."
+  ],
+  "overrides": {
+    "net.zetetic:sqlcipher-android": {
+      "license": "BSD-3-Clause",
+      "license_url": "https://www.zetetic.net/sqlcipher/license/",
+      "note": "The published POM carries a <licenses> entry with a URL but an EMPTY <name>, so automated tooling reports no licence for it. SQLCipher Community Edition is BSD-3-Clause, copyright ZETETIC LLC. It embeds SQLite, which its authors released into the public domain."
+    }
+  },
+  "elections": {
+    "net.java.dev.jna:jna": {
+      "offered": [
+        "LGPL-2.1-or-later",
+        "Apache-2.0"
+      ],
+      "elected": "Apache-2.0",
+      "note": "JNA has been dual-licensed since version 4.0: a recipient may use it under either the LGPL 2.1 (or later) or the Apache License 2.0. Pingolin Note elects Apache-2.0, so no LGPL obligation attaches to this distribution. JNA is a genuine runtime dependency, not just a test one - the UniFFI-generated Kotlin bindings call the Rust .so through it, and it is declared as `implementation(\"net.java.dev.jna:jna:5.18.1@aar\")` in library/build.gradle.kts."
+    }
+  },
+  "proprietary": {
+    "com.google.android.gms": {
+      "license": "Android Software Development Kit License",
+      "license_url": "https://developer.android.com/studio/terms",
+      "note": "Google Play services client libraries. Proprietary; redistributed under the Android SDK licence terms, not an OSS licence."
+    },
+    "com.google.android.play:core-common": {
+      "license": "Play Core Software Development Kit Terms of Service",
+      "license_url": "https://developer.android.com/guide/playcore/license",
+      "note": "Proprietary Google component."
+    },
+    "com.google.android.play:integrity": {
+      "license": "Play Integrity API Terms of Service",
+      "license_url": "https://developer.android.com/google/play/integrity/overview#tos",
+      "note": "Proprietary Google component used for device attestation."
+    },
+    "com.google.firebase:firebase-iid-interop": {
+      "license": "Android Software Development Kit License",
+      "license_url": "https://developer.android.com/studio/terms",
+      "note": "Proprietary Firebase interop shim."
+    },
+    "com.google.firebase:firebase-measurement-connector": {
+      "license": "Android Software Development Kit License",
+      "license_url": "https://developer.android.com/studio/terms",
+      "note": "Proprietary Firebase interop shim."
+    }
+  },
+  "embedded": {
+    "SQLite": {
+      "within": "net.zetetic:sqlcipher-android (libsqlcipher.so)",
+      "license": "blessing",
+      "license_url": "https://sqlite.org/copyright.html",
+      "note": "SQLCipher is a fork of SQLite. Its authors dedicated it to the public domain: 'The author disclaims copyright to this source code.'"
+    },
+    "OpenSSL": {
+      "within": "net.zetetic:sqlcipher-android (libsqlcipher.so)",
+      "version": "3.0.16",
+      "license": "Apache-2.0",
+      "license_url": "https://www.openssl.org/source/license.html",
+      "note": "SQLCipher links OpenSSL statically for its cryptographic primitives; the exact build is identified by the version banner inside the shipped binary ('OpenSSL 3.0.16 11 Feb 2025'). OpenSSL 3.x is Apache-2.0."
+    }
+  },
+  "vendored": {},
+  "_spdx_aliases_comment": [
+    "POM <licenses><name> is free text, so the same licence arrives under half a",
+    "dozen spellings ('Apache 2.0', 'The Apache Software License, Version 2.0', ...).",
+    "Mapping them onto SPDX identifiers is what lets the summary count a licence",
+    "once and lets every row link to the licence text. Cargo already emits SPDX,",
+    "so this only ever needs to grow for JVM dependencies."
+  ],
+  "spdx_aliases": {
+    "The Apache Software License, Version 2.0": "Apache-2.0",
+    "The Apache License, Version 2.0": "Apache-2.0",
+    "Apache License, Version 2.0": "Apache-2.0",
+    "Apache License 2.0": "Apache-2.0",
+    "Apache 2.0": "Apache-2.0",
+    "Apache2": "Apache-2.0",
+    "BSD 2-Clause License": "BSD-2-Clause",
+    "BSD 3-Clause License": "BSD-3-Clause",
+    "The MIT License": "MIT",
+    "MIT License": "MIT",
+    "ISC License": "ISC",
+    "MIT/Apache-2.0": "MIT OR Apache-2.0",
+    "Apache-2.0 / MIT": "Apache-2.0 OR MIT"
+  },
+  "license_urls": {
+    "Apache-2.0": "https://www.apache.org/licenses/LICENSE-2.0",
+    "MIT": "https://spdx.org/licenses/MIT.html",
+    "MIT-0": "https://spdx.org/licenses/MIT-0.html",
+    "BSD-2-Clause": "https://spdx.org/licenses/BSD-2-Clause.html",
+    "BSD-3-Clause": "https://spdx.org/licenses/BSD-3-Clause.html",
+    "0BSD": "https://spdx.org/licenses/0BSD.html",
+    "ISC": "https://spdx.org/licenses/ISC.html",
+    "MPL-2.0": "https://www.mozilla.org/en-US/MPL/2.0/",
+    "Zlib": "https://spdx.org/licenses/Zlib.html",
+    "Unlicense": "https://spdx.org/licenses/Unlicense.html",
+    "CC0-1.0": "https://spdx.org/licenses/CC0-1.0.html",
+    "BSL-1.0": "https://spdx.org/licenses/BSL-1.0.html",
+    "Unicode-3.0": "https://spdx.org/licenses/Unicode-3.0.html",
+    "CDLA-Permissive-2.0": "https://spdx.org/licenses/CDLA-Permissive-2.0.html",
+    "Apache-2.0 WITH LLVM-exception": "https://spdx.org/licenses/LLVM-exception.html",
+    "LGPL-2.1-or-later": "https://www.gnu.org/licenses/old-licenses/lgpl-2.1"
+  }
+}

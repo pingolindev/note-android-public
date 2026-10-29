@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Picker preview for the Note List widget. See
+     widget_preview_quick_capture.xml for why previewImage is needed at all. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item android:drawable="@drawable/widget_background" />
+
+    <!-- A header mark plus three rules, which is what the list widget IS:
+         a titled card of note rows. -->
+    <item
+        android:drawable="@drawable/ic_note"
+        android:gravity="top|start"
+        android:start="16dp"
+        android:top="14dp"
+        android:width="20dp"
+        android:height="20dp" />
+
+    <item android:top="48dp" android:start="16dp" android:end="16dp" android:height="10dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF313244" />
+            <corners android:radius="4dp" />
+        </shape>
+    </item>
+    <item android:top="68dp" android:start="16dp" android:end="16dp" android:height="10dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF313244" />
+            <corners android:radius="4dp" />
+        </shape>
+    </item>
+    <item android:top="88dp" android:start="16dp" android:end="48dp" android:height="10dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FF313244" />
+            <corners android:radius="4dp" />
+        </shape>
+    </item>
+
+</layer-list>

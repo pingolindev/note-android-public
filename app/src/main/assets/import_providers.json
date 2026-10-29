@@ -1,0 +1,77 @@
+[
+  {
+    "id": "google_keep",
+    "display_name": "Google Keep",
+    "section": "file",
+    "auth_method": {
+      "kind": "takeout_link",
+      "external_url": "https://takeout.google.com/settings/takeout/custom/keep",
+      "mime_types": [
+        "application/zip",
+        "application/x-zip-compressed"
+      ]
+    },
+    "icon_name": "ic_provider_google_keep",
+    "brand_color": "#FBBC04",
+    "instructions_markdown": "Google Keep doesn't expose a personal API, so the import\ngoes through **Google Takeout**:\n\n1. Tap **Open Takeout** below — you'll land on a page\n   that already has Keep selected.\n2. Scroll to the bottom, hit **Next step**, choose **ZIP**\n   as the file type, and request the export.\n3. Google emails you a download link (usually within a few\n   minutes). Save the ZIP somewhere you can find it.\n4. Come back here and tap **Pick the Takeout ZIP**.\n\nEverything in your Takeout ZIP is decrypted on this device\nbefore it's encrypted under your vault key. The server\nnever sees your Keep notes in plaintext.\n",
+    "caveats": [
+      "Trashed notes are skipped.",
+      "Image attachments inside notes aren't imported yet."
+    ]
+  },
+  {
+    "id": "evernote_file",
+    "display_name": "Evernote (ENEX)",
+    "section": "file",
+    "auth_method": {
+      "kind": "file_upload",
+      "mime_types": [
+        "application/xml",
+        "text/xml",
+        "application/enex"
+      ]
+    },
+    "icon_name": "ic_provider_evernote",
+    "brand_color": "#00A82D",
+    "instructions_markdown": "Export your Evernote notebooks to **ENEX** files from the\nEvernote desktop app: right-click a notebook → **Export**\n→ **ENEX**.\n\nYou can pick one ENEX file at a time. Repeat for each\nnotebook you want to bring over.\n",
+    "caveats": [
+      "Notebook structure is flattened — Evernote notebook names become labels on each note.",
+      "Embedded media (images, audio) is not imported yet."
+    ]
+  },
+  {
+    "id": "standard_notes_file",
+    "display_name": "Standard Notes",
+    "section": "file",
+    "auth_method": {
+      "kind": "file_upload",
+      "mime_types": [
+        "application/json"
+      ]
+    },
+    "icon_name": "ic_provider_standard_notes",
+    "brand_color": "#086DD6",
+    "instructions_markdown": "In Standard Notes: **Account → Data backups → Download\nbackup**. Choose the **Decrypted JSON** option (we don't\nsupport encrypted backups in this flow yet).\n",
+    "caveats": [
+      "Encrypted backups aren't supported yet — use the decrypted JSON export."
+    ]
+  },
+  {
+    "id": "plain_text",
+    "display_name": "Text / Markdown",
+    "section": "file",
+    "auth_method": {
+      "kind": "file_upload",
+      "mime_types": [
+        "text/plain",
+        "text/markdown",
+        "text/x-markdown",
+        "application/zip"
+      ]
+    },
+    "icon_name": "ic_provider_plain_text",
+    "brand_color": "#CBA6F7",
+    "instructions_markdown": "Pick a single `.txt` / `.md` file, or a ZIP archive of\nthem. The first line becomes the note title and the rest\nis the body.\n",
+    "caveats": []
+  }
+]

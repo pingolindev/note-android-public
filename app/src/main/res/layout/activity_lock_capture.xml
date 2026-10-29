@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The lock-screen capture form: mode pill, contained editor card, Save/Discard.
+  Deliberately focused: this creates a note but cannot read or expose existing
+  notes while the device is locked. The card treatment keeps title, body, and
+  checklist rows visually together without recreating the full-app chrome.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#FF1E1E2E"
+    android:fitsSystemWindows="true"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/lockModeLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_lock_capture_mode"
+        android:paddingHorizontal="10dp"
+        android:paddingVertical="5dp"
+        android:text="@string/lock_capture_mode_note"
+        android:textColor="#FFA08AFF"
+        android:textSize="12sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.04"
+        android:importantForAccessibility="yes" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:background="@drawable/bg_lock_capture_card"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <EditText
+            android:id="@+id/lockTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="@string/lock_capture_title_hint"
+            android:textColor="#FFECECF4"
+            android:textColorHint="#FF8C8FA3"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:background="@null"
+            android:inputType="textCapSentences"
+            android:maxLines="2"
+            android:importantForAutofill="no" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:layout_marginBottom="10dp"
+            android:background="#24FFFFFF" />
+
+        <EditText
+            android:id="@+id/lockBody"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:hint="@string/lock_capture_body_hint"
+            android:textColor="#FFECECF4"
+            android:textColorHint="#FF8C8FA3"
+            android:textSize="16sp"
+            android:background="@null"
+            android:gravity="top|start"
+            android:inputType="textMultiLine|textCapSentences"
+            android:importantForAutofill="no" />
+
+        <LinearLayout
+            android:id="@+id/lockChecklistSection"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <ScrollView
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:fillViewport="true">
+
+                <LinearLayout
+                    android:id="@+id/lockChecklistRows"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical" />
+            </ScrollView>
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/lockAddItem"
+                style="@style/Widget.Material3.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:layout_marginTop="4dp"
+                android:gravity="start|center_vertical"
+                android:text="@string/lock_capture_add_item"
+                android:textColor="#FFA08AFF"
+                app:icon="@drawable/ic_add"
+                app:iconGravity="textStart"
+                app:iconTint="#FFA08AFF" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/lockDiscard"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="@string/lock_capture_discard"
+            android:textColor="#FF8C8FA3" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/lockSave"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:layout_marginStart="10dp"
+            android:paddingHorizontal="22dp"
+            android:text="@string/lock_capture_save"
+            android:textColor="#FF1A1040"
+            app:backgroundTint="#FFA08AFF"
+            app:cornerRadius="24dp" />
+    </LinearLayout>
+</LinearLayout>

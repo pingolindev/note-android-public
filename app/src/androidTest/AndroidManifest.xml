@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- The BootReceiver in production fires a SyncWorker.enqueuePeriodicSync()
+         on ACTION_BOOT_COMPLETED, which requires a fully-initialized WorkManager.
+         HiltTestApplication does not implement Configuration.Provider, so the
+         receiver crashes the test process during package-install. Disable it
+         at the test manifest level so it never runs under instrumentation.
+
+         androidx.fragment.app.testing.launchFragment hosts a fragment inside
+         fragment-testing-manifest's EmptyFragmentActivity, which is merged into
+         the main app's debug manifest via debugImplementation. -->
+    <application>
+        <receiver
+            android:name="com.pingolin.note.receiver.BootReceiver"
+            tools:node="remove" />
+    </application>
+</manifest>
