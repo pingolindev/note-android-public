@@ -292,6 +292,89 @@ data class ShareNoteRequest(
      *  server accepts an unsigned wrap and the recipient treats it as
      *  unverified. */
     @SerializedName("wrap_signature") val wrapSignature: String? = null,
+    /**
+     * FINISH an invitation (InvitationFinisher): the server gives the keyless share this address
+     * already has on the note its first key, and writes nothing when there is none (409
+     * `share_not_unfinished`), so a share the owner removed stays removed. Null, and so left out
+     * of the body (Gson drops nulls), on every ordinary share: those are upserts.
+     */
+    val finish: Boolean? = null,
+    /** With [finish]: the content-key generation the wrap was sealed and signed under. The server
+     *  refuses one the note no longer has (409 `share_generation_stale`). Null (left out) otherwise. */
+    @SerializedName("content_key_generation") val contentKeyGeneration: Long? = null,
+)
+
+/**
+ * What a `POST /items/{id}/share` came to, by its status and its refusal's `error_code`. A finish
+ * (InvitationFinisher) acts on each differently: a 402 or a 429 stops the whole pass, a stale
+ * generation is read again, and the rest are tried again later.
+ */
+enum class ShareCallResult {
+    /** 2xx with a successful envelope: shared (or finished). */
+    DONE,
+    /** 409 `share_not_unfinished`: no keyless share of this address to finish (removed, finished
+     *  on another device, or the address belongs to another account now). */
+    NOT_UNFINISHED,
+    /** 409 `share_generation_stale`: the note was re-keyed since its wrap was read. */
+    GENERATION_STALE,
+    /** 402: the owner's plan does not include sharing. */
+    UPGRADE,
+    /** 429: the server takes no more shares from this owner just now (30 a minute). */
+    RATE_LIMITED,
+    /** 5xx: not now. */
+    LATER,
+    /** Anything else. */
+    FAILED;
+
+    companion object {
+        const val SHARE_NOT_UNFINISHED = "share_not_unfinished"
+        const val SHARE_GENERATION_STALE = "share_generation_stale"
+
+        /** The result for a response with this [status], [envelopeSuccess] (the 2xx body's
+         *  `success`) and refusal [errorCode]. */
+        fun of(status: Int, envelopeSuccess: Boolean?, errorCode: String?): ShareCallResult = when {
+            status in 200..299 -> if (envelopeSuccess == true) DONE else FAILED
+            status == 409 && errorCode == SHARE_NOT_UNFINISHED -> NOT_UNFINISHED
+            status == 409 && errorCode == SHARE_GENERATION_STALE -> GENERATION_STALE
+            status == 402 -> UPGRADE
+            status == 429 -> RATE_LIMITED
+            status >= 500 -> LATER
+            else -> FAILED
+        }
+
+        /** [of] for [response]. Reads (and so consumes) a refusal's error body. */
+        fun of(response: retrofit2.Response<out ApiResponse<*>>): ShareCallResult =
+            if (response.isSuccessful) {
+                of(response.code(), response.body()?.success, null)
+            } else {
+                of(response.code(), null, ApiErrors.codeOf(response))
+            }
+    }
+}
+
+/**
+ * One share of the caller's that an invitation left without a key (`GET /api/v1/shares/unfinished`,
+ * note-backend `UnfinishedShare`): made with an address that had no account. Every field is
+ * nullable on purpose: Gson ignores Kotlin's non-null types and defaults, so a field the server
+ * leaves out reads as null here, and a row without what finishing it needs is not finished.
+ */
+data class UnfinishedShareDto(
+    @SerializedName("share_id") val shareId: String? = null,
+    @SerializedName("item_id") val itemId: String? = null,
+    @SerializedName("item_type") val itemType: Int? = null,
+    /** The notebook the item is in on the server (`items.notebook_id`), when it is in one. */
+    @SerializedName("notebook_id") val notebookId: String? = null,
+    @SerializedName("recipient_email") val recipientEmail: String? = null,
+    val permission: String? = null,
+    /** Made in the note's own Share panel (migration 042 `invite_single`). Absent from a server
+     *  that does not say: then it is not finished here. */
+    val single: Boolean? = null,
+    /** An account has signed up with the address and asked for its shares. */
+    val claimed: Boolean? = null,
+    @SerializedName("invite_expires_at") val inviteExpiresAt: String? = null,
+    /** Ran out before anybody claimed it. */
+    val expired: Boolean? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
 )
 
 // Atomic rotate-shares endpoint (/items/{id}/rotate-shares)

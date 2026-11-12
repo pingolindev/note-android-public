@@ -25,9 +25,16 @@ import android.app.NotificationManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.pingolin.note.data.remote.api.NoteApi
+import com.pingolin.note.domain.repository.InvitationFinisher
 import com.pingolin.note.util.SessionManager
+import com.pingolin.note.worker.SyncWorker
+import io.mockk.Runs
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Before
@@ -140,5 +147,53 @@ class SharePushRoutingTest {
         every { sessionManager.areShareNotificationsEnabled() } returns false
         unifiedPush("notebook_share")
         assertEquals(emptyList<Pair<String?, String?>>(), posted())
+    }
+
+    /**
+     * "finish_shares": someone the owner shared a note with has signed up. The same silent
+     * immediate sync as "sync", marked as asked for, so the invitation finisher at its end runs
+     * however recent its last pass was. Nothing is posted. The FCM service has the same test in
+     * testGms; this lane is the libre flavour's only one.
+     */
+    private fun routedToAnImmediateSync(push: () -> Unit) {
+        mockkObject(SyncWorker.Companion)
+        try {
+            every { SyncWorker.enqueueImmediateSync(any()) } just Runs
+            val asked = InvitationFinisher.asked()
+            push()
+            verify(exactly = 1) { SyncWorker.enqueueImmediateSync(any()) }
+            assertEquals("the pass at the sync's end is asked for", asked + 1, InvitationFinisher.asked())
+            assertEquals(emptyList<Pair<String?, String?>>(), posted())
+        } finally {
+            unmockkObject(SyncWorker.Companion)
+        }
+    }
+
+    @Test
+    fun `tickle handler - a finish_shares tickle starts a silent immediate sync`() {
+        routedToAnImmediateSync {
+            kotlinx.coroutines.runBlocking {
+                NoteTickleHandler(context, sessionManager, noteApi, identityRecheck).handle(InvitationFinisher.PUSH_KIND, "tickle")
+            }
+        }
+    }
+
+    @Test
+    fun `unifiedpush - the dispatcher's finish_shares payload starts a silent immediate sync`() {
+        assertEquals("finish_shares", InvitationFinisher.PUSH_KIND)
+        routedToAnImmediateSync { unifiedPush("finish_shares") }
+    }
+
+    @Test
+    fun `unifiedpush - a finish_shares push with nobody signed in does nothing`() {
+        every { sessionManager.isLoggedIn() } returns false
+        mockkObject(SyncWorker.Companion)
+        try {
+            every { SyncWorker.enqueueImmediateSync(any()) } just Runs
+            unifiedPush("finish_shares")
+            verify(exactly = 0) { SyncWorker.enqueueImmediateSync(any()) }
+        } finally {
+            unmockkObject(SyncWorker.Companion)
+        }
     }
 }

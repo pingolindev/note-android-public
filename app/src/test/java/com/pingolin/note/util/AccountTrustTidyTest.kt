@@ -224,4 +224,30 @@ class AccountTrustTidyTest {
         assertEquals("erased", KeptWebTrustStore.Kept.None, web.get(me))
         assertEquals(KeptWebTrustStore.Kept.Copy("{}", "{}", "{}"), web.get(third))
     }
+
+    /** The seals the invitation finisher made, and its tries, live as long as the page's kept trust
+     *  (the contract: "the account's own, never another's"): the same two rules remove them. */
+    @Test
+    fun `the finisher's seals and tries go with the kept trust, and stay for the same address`() {
+        val same = "4a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+        fun sealsOf(account: String) = (web.seals(account) as KeptWebTrustStore.Seals.Held).seals.size
+        for (account in listOf(me, other, third, same)) {
+            web.recordSeal(account, signer, "a".repeat(64), "b".repeat(64), 1L)
+            web.keepTriedAt(account, mapOf("share" to 1L))
+        }
+        emails.save(other, "other@x.y")
+        emails.save(same, "me@x.y")
+
+        tidy().afterSignIn(me, "me@x.y")
+        assertEquals("another address: forgotten", 0, sealsOf(other))
+        assertEquals(emptyMap<String, Long>(), web.triedAt(other))
+        assertEquals("the same address: kept", 1, sealsOf(same))
+        assertEquals("no saved address: kept", 1, sealsOf(third))
+        assertEquals(1, sealsOf(me))
+
+        tidy().erase(me)
+        assertEquals("erased", 0, sealsOf(me))
+        assertEquals(emptyMap<String, Long>(), web.triedAt(me))
+        assertEquals(mapOf("share" to 1L), web.triedAt(third))
+    }
 }

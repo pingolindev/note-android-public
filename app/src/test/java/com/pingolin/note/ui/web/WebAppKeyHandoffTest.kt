@@ -34,6 +34,9 @@ import org.junit.Test
  */
 class WebAppKeyHandoffTest {
 
+    /** The note origin the scripts are built for. */
+    private val origin = "https://note.example.test"
+
     private val keys = WebAppKeyHandoff.Keys(
         vaultKeyB64 = "dmF1bHRLZXlCeXRlcw==",
         sharingPrivB64 = "c2hhcmluZ1ByaXY=",
@@ -44,7 +47,7 @@ class WebAppKeyHandoffTest {
 
     @Test
     fun `writes every key the web app reads back`() {
-        val script = WebAppKeyHandoff.buildScript(keys, trustIsOurs = true)!!
+        val script = WebAppKeyHandoff.buildScript(keys, trustIsOurs = true, origin = origin)!!
         for (name in listOf(
             "pingolin_note_session_key",
             "pingolin_note_sharing_priv",
@@ -59,7 +62,7 @@ class WebAppKeyHandoffTest {
 
     @Test
     fun `uses sessionStorage, never localStorage`() {
-        val script = WebAppKeyHandoff.buildScript(keys, trustIsOurs = true)!!
+        val script = WebAppKeyHandoff.buildScript(keys, trustIsOurs = true, origin = origin)!!
         assertTrue(script.contains("window.sessionStorage"))
         assertFalse("key material must not outlive the session", script.contains("localStorage"))
     }
@@ -70,7 +73,7 @@ class WebAppKeyHandoffTest {
      */
     @Test
     fun `omits signing entirely when only one half is present`() {
-        val script = WebAppKeyHandoff.buildScript(keys.copy(signPublicB64 = null), trustIsOurs = true)!!
+        val script = WebAppKeyHandoff.buildScript(keys.copy(signPublicB64 = null), trustIsOurs = true, origin = origin)!!
         assertFalse(script.contains("pingolin_note_sign_secret"))
         assertFalse(script.contains("pingolin_note_sign_public"))
         // the sharing keys still go over — notes must still decrypt
@@ -82,6 +85,7 @@ class WebAppKeyHandoffTest {
         val script = WebAppKeyHandoff.buildScript(
             keys.copy(signSecretB64 = null, signPublicB64 = null),
             trustIsOurs = true,
+            origin = origin,
         )!!
         assertTrue(script.contains("pingolin_note_session_key"))
         assertFalse(script.contains("pingolin_note_sign_secret"))
@@ -93,22 +97,77 @@ class WebAppKeyHandoffTest {
      */
     @Test
     fun `no key goes to the page while the WebView's trust isn't ours`() {
-        assertNull(WebAppKeyHandoff.buildScript(keys, trustIsOurs = false))
-        assertNull(WebAppKeyHandoff.buildScript(keys.copy(signSecretB64 = null, signPublicB64 = null), trustIsOurs = false))
-        assertNull(WebAppKeyHandoff.buildScript(null, trustIsOurs = false))
+        assertNull(WebAppKeyHandoff.buildScript(keys, trustIsOurs = false, origin = origin))
+        assertNull(WebAppKeyHandoff.buildScript(keys.copy(signSecretB64 = null, signPublicB64 = null), trustIsOurs = false, origin = origin))
+        assertNull(WebAppKeyHandoff.buildScript(null, trustIsOurs = false, origin = origin))
     }
 
     @Test
-    fun `both handoffs ask whether the default trust is still ours`() {
+    fun `both handoffs ask whether the default trust is still ours, and name the note origin`() {
         val activity = java.io.File("src/main/java/com/pingolin/note/ui/web/WebAppActivity.kt").readText()
         val calls = Regex("""WebAppKeyHandoff\.buildScript\(([^\n]*)\)""").findAll(activity).map { it.groupValues[1] }.toList()
-        assertEquals(2, calls.size)
-        assertTrue(calls.all { it == "collectKeys(), CompromisedKeyTrustProvider.isDefault()" })
+        assertEquals(
+            listOf(
+                "collectKeys(), CompromisedKeyTrustProvider.isDefault(), origin, notifyPage = true",
+                "collectKeys(), CompromisedKeyTrustProvider.isDefault(), originOf(BuildConfig.NOTE_API_BASE_URL)",
+            ),
+            calls,
+        )
+    }
+
+    /**
+     * The resume path runs the script with evaluateJavascript, which has no
+     * allowlist: in whatever the main frame shows, the account portal or any
+     * page a link led to. Every resume used to write the keys into that page's
+     * storage and call its hook. The script now does nothing at all unless the
+     * document's own origin is the note origin, checked before anything else.
+     */
+    @Test
+    fun `the script does nothing in a document of another origin`() {
+        for (notifyPage in listOf(false, true)) {
+            val script = WebAppKeyHandoff.buildScript(keys, trustIsOurs = true, origin = origin, notifyPage = notifyPage)!!
+            val guard = "(function(){if(location.origin!=='https://note.example.test')return;"
+            assertTrue(script, script.startsWith(guard))
+            assertEquals("one check, before the first write", guard.length, script.indexOf("try{"))
+            assertTrue(script.endsWith("})();"))
+        }
+        // Nothing but an origin is ever built into the check: refused, as a key that isn't base64 is.
+        for (notAnOrigin in listOf("https://x'y", "https://note.example.test/", "https://note.example.test/notes", "javascript:alert(1)", "", "https://a b")) {
+            assertNull(notAnOrigin, WebAppKeyHandoff.buildScript(keys, trustIsOurs = true, origin = notAnOrigin))
+        }
+        assertTrue(WebAppKeyHandoff.buildScript(keys, trustIsOurs = true, origin = "http://10.0.2.2:8080") != null)
+    }
+
+    @Test
+    fun `the page's hook is called inside the check, and only on a resume`() {
+        val resume = WebAppKeyHandoff.buildScript(keys, trustIsOurs = true, origin = origin, notifyPage = true)!!
+        val hook = "window.__pingolinKeysUpdated&&window.__pingolinKeysUpdated();"
+        assertTrue(resume.endsWith("catch(e){}$hook})();"))
+        assertEquals(1, Regex(Regex.escape("__pingolinKeysUpdated()")).findAll(resume).count())
+        val start = WebAppKeyHandoff.buildScript(keys, trustIsOurs = true, origin = origin)!!
+        assertFalse(start.contains("__pingolinKeysUpdated"))
+    }
+
+    /** The resume path sends nothing unless the WebView is on the note origin,
+     *  and never calls the hook outside the script (read from the source). */
+    @Test
+    fun `the resume handoff goes only to a document of the note origin (read from the source)`() {
+        val activity = java.io.File("src/main/java/com/pingolin/note/ui/web/WebAppActivity.kt").readText()
+        val start = activity.indexOf("    private fun refreshKeyHandoffInPlace() {")
+        val end = activity.indexOf("\n    }\n", start)
+        val body = activity.substring(start, end)
+        val check = body.indexOf("if (web.url?.let { originOf(it) } != origin) return")
+        val built = body.indexOf("WebAppKeyHandoff.buildScript(")
+        val sent = body.indexOf("web.evaluateJavascript(script, null)")
+        assertTrue(body, body.contains("val origin = originOf(BuildConfig.NOTE_API_BASE_URL)"))
+        assertTrue(body, check in 0 until built)
+        assertTrue(body, built < sent)
+        assertFalse("the hook is called from inside the script only", activity.contains("window.__pingolinKeysUpdated"))
     }
 
     @Test
     fun `no keys means no script, so the web app falls back to the password`() {
-        assertNull(WebAppKeyHandoff.buildScript(null, trustIsOurs = true))
+        assertNull(WebAppKeyHandoff.buildScript(null, trustIsOurs = true, origin = origin))
     }
 
     /**
@@ -117,15 +176,15 @@ class WebAppKeyHandoffTest {
      */
     @Test
     fun `refuses values that could break out of the string literal`() {
-        assertNull(WebAppKeyHandoff.buildScript(keys.copy(vaultKeyB64 = "abc');alert(1);//"), trustIsOurs = true))
-        assertNull(WebAppKeyHandoff.buildScript(keys.copy(sharingPrivB64 = "abc\\"), trustIsOurs = true))
-        assertNull(WebAppKeyHandoff.buildScript(keys.copy(sharingPubB64 = "abc'def"), trustIsOurs = true))
+        assertNull(WebAppKeyHandoff.buildScript(keys.copy(vaultKeyB64 = "abc');alert(1);//"), trustIsOurs = true, origin = origin))
+        assertNull(WebAppKeyHandoff.buildScript(keys.copy(sharingPrivB64 = "abc\\"), trustIsOurs = true, origin = origin))
+        assertNull(WebAppKeyHandoff.buildScript(keys.copy(sharingPubB64 = "abc'def"), trustIsOurs = true, origin = origin))
     }
 
     @Test
     fun `a partial key set is refused rather than half-applied`() {
-        assertNull(WebAppKeyHandoff.buildScript(keys.copy(vaultKeyB64 = ""), trustIsOurs = true))
-        assertNull(WebAppKeyHandoff.buildScript(keys.copy(sharingPubB64 = ""), trustIsOurs = true))
+        assertNull(WebAppKeyHandoff.buildScript(keys.copy(vaultKeyB64 = ""), trustIsOurs = true, origin = origin))
+        assertNull(WebAppKeyHandoff.buildScript(keys.copy(sharingPubB64 = ""), trustIsOurs = true, origin = origin))
     }
 
     /**

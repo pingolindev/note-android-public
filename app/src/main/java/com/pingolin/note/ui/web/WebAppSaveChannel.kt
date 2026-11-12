@@ -57,7 +57,10 @@ import java.io.File
  *
  * `addWebMessageListener`'s origin allowlist is the security boundary: only
  * documents on OUR origin get the injected object, so the account portal and
- * any external page the WebView ever shows cannot reach this. The payload is
+ * any external page the WebView ever shows cannot reach this. And only the
+ * main frame's message is taken ([accepts], as KeptWebTrustChannel takes
+ * its): the allowlist injects the object into every frame of our origin, a
+ * frame of it inside another page included. The payload is
  * data the page could already read — its own decrypted attachment — so the
  * channel adds no new exposure; the filename is still sanitised because it
  * becomes a real filesystem/MediaStore name on OUR side of the boundary.
@@ -74,7 +77,11 @@ class WebAppSaveChannel(context: Context) {
             return false
         }
         WebViewCompat.addWebMessageListener(web, "pingolinSave", setOf(origin)) {
-                _, message, _, _, _ ->
+                _, message, sourceOrigin, isMainFrame, _ ->
+            if (!accepts("${sourceOrigin.scheme}://${sourceOrigin.authority}", isMainFrame, origin)) {
+                Log.w(TAG, "message refused: not the note origin's main frame")
+                return@addWebMessageListener
+            }
             val payload = message.data ?: return@addWebMessageListener
             // Entry log at WARN (R8 strips i/d): "did the page's postMessage
             // actually cross the bridge" is the question every dead-save
@@ -149,7 +156,12 @@ class WebAppSaveChannel(context: Context) {
         Toast.makeText(appContext, text, Toast.LENGTH_SHORT).show()
     }
 
-    private companion object {
-        const val TAG = "WebAppSaveChannel"
+    companion object {
+        private const val TAG = "WebAppSaveChannel"
+
+        /** Whether a message to save from [sourceOrigin] is taken: only the [origin]'s (the note
+         *  origin's) main frame, as the trust channel takes its. */
+        internal fun accepts(sourceOrigin: String, isMainFrame: Boolean, origin: String): Boolean =
+            isMainFrame && sourceOrigin == origin
     }
 }

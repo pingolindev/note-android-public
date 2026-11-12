@@ -26,6 +26,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.pingolin.note.R
 import com.pingolin.note.data.remote.api.NoteApi
+import com.pingolin.note.domain.repository.InvitationFinisher
 import com.pingolin.note.ui.MainActivity
 import com.pingolin.note.util.SessionManager
 import com.pingolin.note.worker.SyncWorker
@@ -37,7 +38,7 @@ import javax.inject.Singleton
  * Shared "what a tickle does" router + notification renderer.
  *
  * The note server's push dispatcher sends content-free tickles — JSON of the shape
- * `{"type":"tickle","kind":"reminder|share|notebook_share|sync","refId":<id>}` —
+ * `{"type":"tickle","kind":"reminder|share|notebook_share|sync|finish_shares","refId":<id>}` —
  * over whichever push channels the device has registered: FCM or UnifiedPush. This class
  * centralises the downstream:
  *   - "share"             → generic "new share" notification (device-local
@@ -46,6 +47,9 @@ import javax.inject.Singleton
  *                           same, in its own words ([ShareNotice]).
  *   - "sync"              → silent immediate [SyncWorker] pull (never gated —
  *                           it's a data pull, not a user-facing notification).
+ *   - "finish_shares"     → the same silent immediate sync, at whose end the
+ *                           notes shared with someone who has just signed up
+ *                           are finished ([InvitationFinisher]). Nothing shown.
  *   - "reminder"/"tickle" → fetch pending reminders and post a generic
  *                           "Reminder" notification (device-local "Reminders"
  *                           category gates it). No note content is embedded —
@@ -83,6 +87,13 @@ class NoteTickleHandler @Inject constructor(
             }
             "sync" -> {
                 Log.d(TAG, "Sync tickle — pulling changes")
+                SyncWorker.enqueueImmediateSync(context)
+            }
+            InvitationFinisher.PUSH_KIND -> {
+                // Someone the owner shared a note with has signed up: sync now,
+                // and the sync's end finishes the share. Silent.
+                Log.d(TAG, "Finish-shares tickle — syncing to finish them")
+                InvitationFinisher.wanted()
                 SyncWorker.enqueueImmediateSync(context)
             }
             "identities" -> identityRecheck.onNudge()

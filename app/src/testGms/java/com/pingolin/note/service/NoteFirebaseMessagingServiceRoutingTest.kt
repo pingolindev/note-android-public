@@ -122,4 +122,21 @@ class NoteFirebaseMessagingServiceRoutingTest {
         service.onMessageReceived(dispatched("notebook_share"))
         assertEquals(emptyList<Pair<String?, String?>>(), postedWithin(300))
     }
+
+    /** Someone the owner shared a note with has signed up: the same silent immediate sync as
+     *  "sync", marked as asked for, so the invitation finisher at its end runs. Nothing posted. */
+    @Test
+    fun `the dispatcher's finish_shares payload starts a silent immediate sync`() {
+        io.mockk.mockkObject(com.pingolin.note.worker.SyncWorker.Companion)
+        try {
+            every { com.pingolin.note.worker.SyncWorker.enqueueImmediateSync(any()) } returns Unit
+            val asked = com.pingolin.note.domain.repository.InvitationFinisher.asked()
+            service.onMessageReceived(dispatched(com.pingolin.note.domain.repository.InvitationFinisher.PUSH_KIND))
+            io.mockk.verify(exactly = 1) { com.pingolin.note.worker.SyncWorker.enqueueImmediateSync(any()) }
+            assertEquals(asked + 1, com.pingolin.note.domain.repository.InvitationFinisher.asked())
+            assertEquals(emptyList<Pair<String?, String?>>(), postedWithin(300))
+        } finally {
+            io.mockk.unmockkObject(com.pingolin.note.worker.SyncWorker.Companion)
+        }
+    }
 }

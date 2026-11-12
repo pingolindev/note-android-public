@@ -54,7 +54,6 @@ import com.pingolin.note.R
 import com.pingolin.note.util.CompromisedKeyTrustProvider
 import com.pingolin.note.util.SessionManager
 import dagger.hilt.android.AndroidEntryPoint
-import org.json.JSONObject
 import uniffi.pingolin_mobile.CryptoManager
 import javax.inject.Inject
 
@@ -111,6 +110,27 @@ class WebAppActivity : AppCompatActivity() {
 
     @Inject lateinit var cryptoManager: CryptoManager
     @Inject lateinit var identityRecheck: dagger.Lazy<com.pingolin.note.domain.repository.IdentityRecheck>
+
+    /** The one refresher of the stored session: a cold open on a stale token refreshes through it
+     *  before the page loads ([ColdOpenSession]). Lazy, like the rest: only that open needs it. */
+    @Inject lateinit var tokenAuthenticator: dagger.Lazy<com.pingolin.note.util.TokenAuthenticator>
+
+    /** The page load a cold open holds while its stale session is refreshed ([ColdOpenSession]). */
+    private val heldLoad = HeldLoad()
+
+    /** The sign-in this screen leaves for, once ([SignInOnce]): toNativeSignIn and the page's
+     *  sign-out both ask it. */
+    private val signInOnce = SignInOnce()
+
+    /**
+     * The page's API requests go out on a good session ([PageSession]): a jar refreshed in the page
+     * adopted, a stale stored token refreshed through the one refresher, and the cookie jar kept up
+     * with the stored token. Run on the WebView's IO thread, from shouldInterceptRequest; the main
+     * thread is only ever asked to show the native sign-in.
+     */
+    private val pageSession: PageSession by lazy {
+        shellPageSession(sessionManager, tokenAuthenticator, signIn = { runOnUiThread { toNativeSignIn() } })
+    }
 
     private lateinit var web: WebView
 
@@ -188,10 +208,65 @@ class WebAppActivity : AppCompatActivity() {
             return
         }
 
+        // The session ended (refused on a refresh, revoked from another device, signed out): the
+        // native sign-in, from whatever this screen shows. MainActivity watches the same flow, but
+        // it is gone once this screen is the task's root, which left a blank screen behind. At
+        // STARTED: a session that ended while the app was in the background is seen at the next
+        // start. Once only, with every other way here (SignInOnce). After the keyless exit above,
+        // whose own clear must not race its sign-in with its reason.
+        lifecycleScope.launch {
+            repeatOnLifecycle(androidx.lifecycle.Lifecycle.State.STARTED) {
+                sessionManager.isLoggedInFlow.collect { loggedIn ->
+                    if (!loggedIn) toNativeSignIn()
+                }
+            }
+        }
+
         // Seed BEFORE the WebView is created and loads anything, or the first
         // /api/v1/auth/me goes out unauthenticated and the app bounces to the
-        // login portal.
-        seedSessionCookies()
+        // login portal. And seed a GOOD token: a page that boots on an expired
+        // one is bounced there just the same (native access tokens last 15
+        // minutes). So when the page will boot on a stale stored token, it is
+        // refreshed natively first, off the main thread and for at most a few
+        // seconds, and every load waits for that (heldLoad); what shows
+        // meanwhile is what a cold open always shows before the page paints.
+        // A document already booted in this process doesn't check again.
+        //
+        // The one refresher reads the page's cookie jar before it picks a
+        // refresh token, adopting a later pair of the session (the account
+        // portal refreshes it in the page): hand it the jar now, from main,
+        // which starts CookieManager here, before any refresh can ask.
+        installPageSessionJar()
+        val staleToken = sessionManager.getAccessToken()
+        val mustRefreshFirst = ColdOpenSession.mustRefreshFirst(
+            booted = RetainedWebView.isBootedOn(originOf(BuildConfig.NOTE_API_BASE_URL)),
+            accessToken = staleToken,
+            nowSeconds = System.currentTimeMillis() / 1000,
+        )
+        if (mustRefreshFirst) {
+            heldLoad.hold()
+            lifecycleScope.launch {
+                // A later pair of the session in the page's jar is adopted
+                // inside, never the session's older refresh token sent.
+                val next = ColdOpenSession.settle(staleToken, { stale, waitMs ->
+                    tokenAuthenticator.get().refreshSession(stale, waitMs)
+                })
+                when (next) {
+                    // Refused: the session is over and its credentials are
+                    // gone. The native sign-in, as every dead session goes,
+                    // never the account portal.
+                    ColdOpenSession.Next.SIGN_IN -> toNativeSignIn()
+                    // Refreshed: the fresh pair. No answer in time: what is
+                    // stored, and the page's own offline path.
+                    ColdOpenSession.Next.LOAD -> {
+                        seedSessionCookies()
+                        heldLoad.release()
+                    }
+                }
+            }
+        } else {
+            seedSessionCookies()
+        }
 
         // Before any load: a service worker left on our origin must hit the
         // bundled copy too, not the network (see WebAppShellServer).
@@ -204,6 +279,14 @@ class WebAppActivity : AppCompatActivity() {
         //
         // `configure` runs only on first creation. Clients are set below on
         // EVERY acquire, because they capture this Activity.
+        //
+        // Parked, the page keeps its timers, its once-a-minute account check
+        // among them: its idle client runs the same guard (PageSession), built
+        // from process-wide parts only, and with no sign-in, as there is no
+        // screen. Built once per process.
+        RetainedWebView.parkedSessionOnce {
+            shellPageSession(sessionManager, tokenAuthenticator, signIn = {})
+        }
         web = RetainedWebView.obtain(this) { w ->
             w.settings.javaScriptEnabled = true
             w.settings.domStorageEnabled = true
@@ -330,11 +413,17 @@ class WebAppActivity : AppCompatActivity() {
                                 "If you're offline, unsynced notes may be lost.",
                         )
                         .setPositiveButton("Logout") { _, _ ->
+                            // Claimed BEFORE the logout clears the session: the
+                            // login state's watcher then never starts a second
+                            // sign-in, however its emission is dispatched.
+                            val first = signInOnce.leave()
                             logoutOrchestrator.get().logout()
-                            startActivity(
-                                Intent(this@WebAppActivity, com.pingolin.note.ui.auth.AuthActivity::class.java)
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
-                            )
+                            if (first) {
+                                startActivity(
+                                    Intent(this@WebAppActivity, com.pingolin.note.ui.auth.AuthActivity::class.java)
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+                                )
+                            }
                             finish()
                         }
                         .setNegativeButton("Cancel", null)
@@ -379,6 +468,19 @@ class WebAppActivity : AppCompatActivity() {
                     )
                     return true
                 }
+                // Only the note origin, the account portal's and Track web's
+                // (the account deletion's erasure chain) are shown in the
+                // app. Any other http(s) page the main frame would go to
+                // (a link in a note, a shared note's above all: they render
+                // target=_blank, and with no new windows that navigates this
+                // frame) opens in the browser instead. Subframes and other
+                // schemes are not this rule's (ShellNavigation).
+                if (ShellNavigation.decide(req.url.scheme, req.url.host, req.url.port, req.isForMainFrame) ==
+                    ShellNavigation.Where.OUTSIDE
+                ) {
+                    openOutside(req.url)
+                    return true
+                }
                 return false
             }
 
@@ -395,8 +497,15 @@ class WebAppActivity : AppCompatActivity() {
                 v: WebView,
                 req: WebResourceRequest,
             ): WebResourceResponse? {
-                shellServer.intercept(req)?.let { return it }
-                // What is left is network-bound: our API, and other origins.
+                // The page's own code from the APK, then its API on a good
+                // session (PageSession: a jar refreshed in the page adopted, a
+                // stale stored token refreshed natively first, the jar brought
+                // up to the stored one; fresh and in the jar, as nearly every
+                // request is, one comparison), a refusal answered with a 503
+                // while the native sign-in takes over. The parked WebView runs
+                // the same (ShellRequests). Before take() below, which then
+                // reads the token this left stored.
+                ShellRequests.answer(req, shellServer, pageSession, parked = false)?.let { return it }
                 // The page's /auth/me — the one request the notes list cannot
                 // render without — may already be in hand: NoteApplication
                 // starts it alongside the launch, and this is where it lands.
@@ -665,7 +774,9 @@ class WebAppActivity : AppCompatActivity() {
             }
         })
 
-        if (savedInstanceState == null) navigateTo(urlFor(intent))
+        // Through heldLoad: on a cold open whose session is being refreshed,
+        // this waits for it (and reads the intent then, so a newer one wins).
+        if (savedInstanceState == null) heldLoad.run { navigateTo(urlFor(intent)) }
 
         // Hand each "identities" nudge to the page, which opens its
         // own earlier identities (this shell has no bridge op for
@@ -690,6 +801,12 @@ class WebAppActivity : AppCompatActivity() {
      * schedule, and a stale `auth_token` here would cost the web app a
      * needless refresh round trip (or a bounce to login if the refresh cookie
      * had also aged out).
+     *
+     * It seeds whatever is stored, and loads nothing. On a cold open it runs
+     * right after onCreate, while a stale session may still be refreshing
+     * (ColdOpenSession): that seed is the old pair, harmless because nothing
+     * has loaded, and the cold open seeds again, the fresh pair, just before
+     * it lets the page load.
      */
     override fun onResume() {
         super.onResume()
@@ -757,17 +874,25 @@ class WebAppActivity : AppCompatActivity() {
      * material as well as the cookies.
      *
      * The script is the same idempotent sessionStorage write the
-     * document-start path uses (single-origin guard included), followed by
-     * the page's `__pingolinKeysUpdated` hook so the running app reloads its
-     * in-memory keys too. Missing keys skip silently — the next resume
-     * retries, same posture as [installKeyHandoff].
+     * document-start path uses, followed by the page's `__pingolinKeysUpdated`
+     * hook so the running app reloads its in-memory keys too. Missing keys
+     * skip silently — the next resume retries, same posture as
+     * [installKeyHandoff].
+     *
+     * ONLY into a document of the note origin. evaluateJavascript has no
+     * allowlist: it runs in whatever the main frame shows, which can be the
+     * account portal (the bounce, Settings' "Manage") or any page a link led
+     * to, as every other URL loads in place. Before these checks, every resume
+     * wrote the vault, sharing and signing keys into that page's storage and
+     * called its hook. So nothing is sent unless the WebView's URL is on the
+     * note origin, and the script checks `location.origin` again where it
+     * runs, as the document can have moved on since getUrl() answered.
      */
     private fun refreshKeyHandoffInPlace() {
-        val script = WebAppKeyHandoff.buildScript(collectKeys(), CompromisedKeyTrustProvider.isDefault()) ?: return
-        web.evaluateJavascript(
-            script + "window.__pingolinKeysUpdated && window.__pingolinKeysUpdated();",
-            null,
-        )
+        val origin = originOf(BuildConfig.NOTE_API_BASE_URL)
+        if (web.url?.let { originOf(it) } != origin) return
+        val script = WebAppKeyHandoff.buildScript(collectKeys(), CompromisedKeyTrustProvider.isDefault(), origin, notifyPage = true) ?: return
+        web.evaluateJavascript(script, null)
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -784,11 +909,19 @@ class WebAppActivity : AppCompatActivity() {
         // screen — that reload throws away exactly what retention keeps,
         // including in-editor state. Restore only when the document is
         // actually gone; otherwise just make sure we are showing what the
-        // intent asked for.
-        if (!RetainedWebView.isBootedOn(originOf(BuildConfig.NOTE_API_BASE_URL))) {
-            web.restoreState(savedInstanceState)
-        } else {
-            navigateTo(urlFor(intent))
+        // intent asked for. Either is a load, so either waits for a cold
+        // open's session (heldLoad). And a state saved while that hold kept
+        // the first load back holds no page at all: then the intent's page
+        // is loaded, not a blank screen.
+        heldLoad.run {
+            if (!RetainedWebView.isBootedOn(originOf(BuildConfig.NOTE_API_BASE_URL))) {
+                ColdOpenSession.restoreOrNavigate(
+                    restore = { web.restoreState(savedInstanceState)?.size },
+                    navigate = { navigateTo(urlFor(intent)) },
+                )
+            } else {
+                navigateTo(urlFor(intent))
+            }
         }
     }
 
@@ -800,7 +933,9 @@ class WebAppActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (intent.hasExtra(EXTRA_URL) || intent.hasExtra(EXTRA_NOTE_ID)) navigateTo(urlFor(intent))
+        // While a cold open's session is being refreshed, this replaces the
+        // load it holds: the page loads once, at the newest intent.
+        if (intent.hasExtra(EXTRA_URL) || intent.hasExtra(EXTRA_NOTE_ID)) heldLoad.run { navigateTo(urlFor(intent)) }
     }
 
     /**
@@ -863,9 +998,9 @@ class WebAppActivity : AppCompatActivity() {
             return
         }
         val path = url.removePrefix(origin).ifEmpty { "/" }
-        // JSON-encode so a note id can never break out of the string literal.
-        val js = "(function(){var n=window.__pingolinNavigate;" +
-            "if(!n){return 'no-hook';}n(${JSONObject.quote(path)});return 'ok';})()"
+        // The live document's own router, only in a document of the note
+        // origin (the script checks where it runs), the path a JSON string.
+        val js = ShellNavigation.routeScript(origin, path)
         web.evaluateJavascript(js) { result ->
             if (result == null || result.contains("no-hook")) {
                 // WARN: this is the line that tells you the fast path is NOT being
@@ -983,7 +1118,7 @@ class WebAppActivity : AppCompatActivity() {
         // retries with whatever keys exist by then — latching this
         // failure would leave the retained WebView permanently
         // keyless.
-        val script = WebAppKeyHandoff.buildScript(collectKeys(), CompromisedKeyTrustProvider.isDefault()) ?: return false
+        val script = WebAppKeyHandoff.buildScript(collectKeys(), CompromisedKeyTrustProvider.isDefault(), originOf(BuildConfig.NOTE_API_BASE_URL)) ?: return false
         if (!WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)) {
             // Degrade to the password prompt rather than injecting late and
             // racing the app's own boot — a half-applied key handoff is worse
@@ -1115,6 +1250,36 @@ class WebAppActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * A page that isn't the app's ([ShellNavigation.Where.OUTSIDE]), in the browser or whatever the
+     * person has for it: a browsable VIEW, never an explicit component. Nothing to open it with is
+     * logged, without the URL.
+     */
+    private fun openOutside(url: Uri) {
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, url).addCategory(Intent.CATEGORY_BROWSABLE))
+        } catch (e: ActivityNotFoundException) {
+            Log.w(TAG, "a link to another site, and nothing to open it with")
+        }
+    }
+
+    /**
+     * The session is over: the native sign-in, as the logout and the keyless open go, and nothing
+     * loads (the page would only bounce to the account portal and ask there). Whoever saw it end
+     * asks: the login state's watcher (revoked from another device, refused on any refresh), a
+     * cold open's refused refresh ([ColdOpenSession]), a page request's ([PageSession]). Once
+     * ([SignInOnce]), so none of them stacks a second sign-in screen.
+     */
+    private fun toNativeSignIn() {
+        heldLoad.drop()
+        if (isFinishing || isDestroyed || !signInOnce.leave()) return
+        startActivity(
+            Intent(this, com.pingolin.note.ui.auth.AuthActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
+        )
+        finish()
+    }
+
     private fun seedSessionCookies() {
         val access = sessionManager.getAccessToken()
         val refresh = sessionManager.getRefreshToken()
@@ -1126,6 +1291,16 @@ class WebAppActivity : AppCompatActivity() {
         val base = BuildConfig.NOTE_API_BASE_URL
         val domain = cookieDomainFor(base)
         val cm = CookieManager.getInstance()
+
+        // Never over a later pair of this session (a launch, a resume): the
+        // account portal, run in this WebView, refreshes on every load, and the
+        // server then revokes the stored access token's id. The page's next API
+        // request adopts that pair into the store (PageSession); written over,
+        // the page and the portal would both be left holding the revoked token.
+        if (PageSession.Jar.of(PageSession.authTokenIn(cm.getCookie(base)), access) == PageSession.Jar.AHEAD) {
+            Log.w(PAGE_SESSION_TAG, "page cookie ahead of the stored session at a seed: left for the page to adopt")
+            return
+        }
 
         // Attributes mirror the cookies the auth server sets, so
         // these REPLACE the server's cookies rather than sitting
@@ -1141,6 +1316,89 @@ class WebAppActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "WebAppActivity"
+
+        /** The tag of the page-session lines ([PageSession.Check.describe]), WARN so R8 keeps
+         *  them: `adb logcat -s PageSession:W`. */
+        const val PAGE_SESSION_TAG = "PageSession"
+
+        /**
+         * Hand the one refresher the page's cookie jar ([com.pingolin.note.util.PageSessionJar]),
+         * from main: at process start (NoteApplication posts it) and when this screen opens.
+         * CookieManager starts here, never on whatever thread first refreshes. The reader holds no
+         * Activity. A WebView that can't start (being updated, missing) is no jar: nothing waits.
+         */
+        internal fun installPageSessionJar() {
+            val cookies = try {
+                CookieManager.getInstance()
+            } catch (e: Exception) {
+                Log.w(TAG, "no cookie jar in this process (${e.javaClass.simpleName})")
+                com.pingolin.note.util.PageSessionJar.unavailable()
+                return
+            }
+            com.pingolin.note.util.PageSessionJar.install(
+                read = { readJarPair(cookies) },
+                write = { access, refresh -> writeJarPair(access, refresh) },
+            )
+        }
+
+        /**
+         * A pair the one refresher just stored, into the jar as seedSessionCookies writes it (the
+         * same cookies, so they replace the server's), from the refresher's own thread, waited for
+         * at most a second.
+         */
+        private fun writeJarPair(access: String, refresh: String) {
+            val base = BuildConfig.NOTE_API_BASE_URL
+            val domain = cookieDomainFor(base)
+            CookieWriter.write(base, listOf(authCookieHeader(access, domain), refreshCookieHeader(refresh, domain)), 1_000L)
+        }
+
+        /**
+         * The jar's session pair in ONE read: the refresh endpoint's cookies are its `refresh_token`
+         * (Path the endpoint) and the `auth_token` (Path `/`), so both halves are of one moment.
+         */
+        private fun readJarPair(cookies: CookieManager): com.pingolin.note.util.PageSessionJar.Held {
+            val line = cookies.getCookie("${originOf(BuildConfig.NOTE_API_BASE_URL)}/api/v1/auth/refresh")
+            return com.pingolin.note.util.PageSessionJar.Held(PageSession.authTokenIn(line), PageSession.refreshTokenIn(line))
+        }
+
+        /**
+         * The [PageSession] of this app's WebView, built from process-wide parts only (the stored
+         * session, the one refresher, the WebView's cookie jar), so it holds no Activity: the
+         * activity runs one on its client with [signIn], and the parked WebView ([RetainedWebView])
+         * one on its idle client with none, as there is no screen to sign in on.
+         */
+        internal fun shellPageSession(
+            sessionManager: SessionManager,
+            tokenAuthenticator: dagger.Lazy<com.pingolin.note.util.TokenAuthenticator>,
+            signIn: () -> Unit,
+        ): PageSession {
+            val origin = originOf(BuildConfig.NOTE_API_BASE_URL)
+            return PageSession(
+                noteOrigin = origin,
+                storedToken = { sessionManager.getAccessToken() },
+                jarToken = { url -> PageSession.authTokenIn(CookieManager.getInstance().getCookie(url)) },
+                jarPair = { readJarPair(CookieManager.getInstance()) },
+                refresh = { stale, waitMs -> tokenAuthenticator.get().refreshSession(stale, waitMs) },
+                adopt = { access, refresh, waitMs -> tokenAuthenticator.get().adoptSession(access, refresh, waitMs) },
+                reseed = { access, waitMs -> reseedCookies(sessionManager, access, waitMs) },
+                signIn = signIn,
+            )
+        }
+
+        /**
+         * seedSessionCookies for PageSession, from the WebView's IO thread: the stored pair, with
+         * [access] as the access token, written off the main thread and waited for at most
+         * [waitMs].
+         */
+        private fun reseedCookies(sessionManager: SessionManager, access: String, waitMs: Long): Boolean {
+            val base = BuildConfig.NOTE_API_BASE_URL
+            val domain = cookieDomainFor(base)
+            val cookies = listOfNotNull(
+                authCookieHeader(access, domain),
+                sessionManager.getRefreshToken()?.takeIf { it.isNotBlank() }?.let { refreshCookieHeader(it, domain) },
+            )
+            return CookieWriter.write(base, cookies, waitMs)
+        }
 
         internal fun authCookieHeader(accessToken: String, domain: String): String =
             "auth_token=$accessToken; Domain=$domain; Path=/; Secure; HttpOnly; " +
@@ -1234,7 +1492,9 @@ class WebAppActivity : AppCompatActivity() {
         @Volatile
         private var sharedShellServer: WebAppShellServer? = null
 
-        private fun shellServerFor(context: Context): WebAppShellServer =
+        /** The one shell server of the process, on the application's assets (no Activity in it):
+         *  the activity's client, the parked WebView's (RetainedWebView) and service workers'. */
+        internal fun shellServerFor(context: Context): WebAppShellServer =
             sharedShellServer ?: synchronized(this) {
                 sharedShellServer ?: WebAppShellServer(
                     context.applicationContext.assets,

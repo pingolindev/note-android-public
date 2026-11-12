@@ -125,7 +125,10 @@ class NoServerTextTest {
             // Read for the Log.w on the next line.
             "AttestationManager.kt" to listOf("val errorBody = verifyResponse.errorBody()?.string()"),
             // The token refresh's log line after them; its Result is read only for isSuccess.
+            // And the refusal's media type, for the decision (TokenAuthenticator.isRefusal: a
+            // 401 is the session refused only with auth's JSON error): a type, never its text.
             "TokenAuthenticator.kt" to listOf(
+                "val contentType = resp.errorBody()?.contentType()?.toString()",
                 "val serverMsg = resp.body()?.error",
                 "?: try { resp.errorBody()?.string() } catch (_: Exception) { null }",
             ),

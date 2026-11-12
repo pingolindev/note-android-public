@@ -167,11 +167,18 @@ interface NoteApi {
     @POST("api/v1/items/{id}/restore")
     suspend fun restoreItem(@Path("id") id: String): Response<Unit>
 
+    /** Share a note, or FINISH an invitation's keyless share ([ShareNoteRequest.finish]). What a
+     *  refusal means is read with [ShareCallResult.of]. */
     @POST("api/v1/items/{noteId}/share")
     suspend fun shareNote(
         @Path("noteId") noteId: String,
         @Body request: ShareNoteRequest,
     ): Response<ApiResponse<Unit>>
+
+    /** The caller's shares an invitation left without a key (made before the address had an
+     *  account), claimed ones first: what the owner's devices finish (InvitationFinisher). */
+    @GET("api/v1/shares/unfinished")
+    suspend fun listUnfinishedShares(): Response<ApiResponse<List<UnfinishedShareDto>>>
 
     // Look up X25519 public keys for a batch of emails. The note backend
     // proxies this to the auth service's internal endpoint.

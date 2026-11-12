@@ -48,6 +48,7 @@ class SyncWorker @AssistedInject constructor(
     private val reminderDao: ReminderDao,
     private val quotaManager: com.pingolin.note.domain.repository.QuotaManager,
     private val syncStatus: com.pingolin.note.util.SyncStatus,
+    private val invitationFinisher: com.pingolin.note.domain.repository.InvitationFinisher,
 ) : CoroutineWorker(appContext, workerParams) {
 
     override suspend fun doWork(): Result {
@@ -58,11 +59,17 @@ class SyncWorker @AssistedInject constructor(
             // deleted=1) and stale reminders from filling the reminders
             // table after the user's notifications fire.
             housekeep()
+            // The account this sync is for, named before it starts: the shares
+            // finished after it are that account's, and only while it is still
+            // the one signed in (as SyncRepository's own writes). Never what
+            // fails the sync.
+            val account = runCatching { invitationFinisher.signedInAccount() }.getOrNull()
             val result = syncRepository.sync()
             android.util.Log.i(TAG, "Sync complete: pushed=${result.pushed}, pulled=${result.pulled}, conflicts=${result.conflicts}")
             // A successful background sync clears any stale "couldn't reach
             // server" banner left by an earlier failed foreground refresh.
             syncStatus.clear()
+            finishInvitations(account)
             Result.success()
         } catch (e: QuotaExceededException) {
             // Don't retry — quota is a deterministic server decision
@@ -87,6 +94,23 @@ class SyncWorker @AssistedInject constructor(
             // consistent with a failed foreground refresh.
             syncStatus.markFailure()
             if (runAttemptCount < 3) Result.retry() else Result.failure()
+        }
+    }
+
+    /**
+     * After a successful sync: finish the notes this account shared on their
+     * own before their reader had an account, now that the reader has one
+     * (InvitationFinisher; a `finish_shares` push starts the sync that gets
+     * here). Never fails or retries the sync: what isn't finished now is
+     * tried again after a later one.
+     */
+    private suspend fun finishInvitations(account: String?) {
+        try {
+            invitationFinisher.afterSync(account)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            android.util.Log.w(TAG, "Finishing shares failed: ${e.javaClass.simpleName}")
         }
     }
 
@@ -138,9 +162,10 @@ class SyncWorker @AssistedInject constructor(
         private const val REMINDER_RETENTION_MS = 30L * 24 * 60 * 60 * 1000
 
         /**
-         * Cancel every scheduled or in-flight sync — both the periodic worker
-         * (unique name [TAG]) and the expedited immediate one
-         * ("${TAG}_immediate"). Called by the account-switch / logout wipe
+         * Cancel every scheduled or in-flight sync — the periodic worker
+         * (unique name [TAG]), the expedited immediate one
+         * ("${TAG}_immediate") and the delayed [FINISH_LATER] one. Called by
+         * the account-switch / logout wipe
          * BEFORE it clears the DB so a sync that started for the outgoing
          * account can't upsert a just-fetched page into the incoming account's
          * session. Cancellation is cooperative/async, so SyncRepository also
@@ -150,6 +175,35 @@ class SyncWorker @AssistedInject constructor(
             val wm = WorkManager.getInstance(context)
             wm.cancelUniqueWork(TAG)
             wm.cancelUniqueWork("${TAG}_immediate")
+            wm.cancelUniqueWork(FINISH_LATER)
+        }
+
+        /**
+         * The one delayed sync a `finish_shares` push gets when the invitation finisher's
+         * once-a-minute cap refused it (InvitationFinisher): without it, the share would wait for
+         * an unrelated sync, the 15-minute periodic one or later in Doze. Unique and REPLACE: one
+         * at a time, set for the end of the latest minute (a later refusal only moves it later,
+         * and one made at the end of this same sync's own pass replaces it rather than being
+         * dropped while it still runs, as KEEP would).
+         */
+        const val FINISH_LATER = "${TAG}_finish_later"
+
+        /** The delayed sync [enqueueFinishLaterSync] enqueues: [delayMs] from now, online. */
+        fun finishLaterRequest(delayMs: Long): OneTimeWorkRequest =
+            OneTimeWorkRequestBuilder<SyncWorker>()
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build(),
+                )
+                .setInitialDelay(delayMs.coerceAtLeast(0L), TimeUnit.MILLISECONDS)
+                .addTag(FINISH_LATER)
+                .build()
+
+        /** Enqueue the [FINISH_LATER] sync [delayMs] from now, replacing one already set. */
+        fun enqueueFinishLaterSync(context: Context, delayMs: Long) {
+            WorkManager.getInstance(context)
+                .enqueueUniqueWork(FINISH_LATER, ExistingWorkPolicy.REPLACE, finishLaterRequest(delayMs))
         }
 
         fun enqueuePeriodicSync(context: Context) {

@@ -49,7 +49,7 @@ import org.unifiedpush.android.connector.data.PushMessage
  * Endpoint registration and tickle handling are intentionally a thin copy of
  * NoteFirebaseMessagingService: the server sends the same payload
  * (type="tickle" with the event in `kind`: "reminder" | "share" |
- * "notebook_share" | "sync") over both lanes, so keep the two in sync if either
+ * "notebook_share" | "sync" | "finish_shares") over both lanes, so keep the two in sync if either
  * changes.
  */
 class NoteUnifiedPushReceiver : MessagingReceiver() {
@@ -174,7 +174,7 @@ class NoteUnifiedPushReceiver : MessagingReceiver() {
             return
         }
         // The dispatcher always sends type="tickle" with the event in `kind`
-        // ("reminder" | "share" | "notebook_share" | "sync"), so `kind` MUST be
+        // ("reminder" | "share" | "notebook_share" | "sync" | "finish_shares"), so `kind` MUST be
         // branched on first — see [NoteTickleHandler.handle].
         val (type, kind) = try {
             val obj = JSONObject(text)
@@ -206,6 +206,14 @@ class NoteUnifiedPushReceiver : MessagingReceiver() {
             "sync" -> {
                 // Silent pull-now tickle (note changed on another device).
                 Log.d(TAG, "Sync tickle — pulling changes")
+                com.pingolin.note.worker.SyncWorker.enqueueImmediateSync(context)
+            }
+            com.pingolin.note.domain.repository.InvitationFinisher.PUSH_KIND -> {
+                // Someone the owner shared a note with has signed up: the same
+                // silent sync, at whose end the share is finished
+                // (InvitationFinisher). Nothing is shown.
+                Log.d(TAG, "Finish-shares tickle — syncing to finish them")
+                com.pingolin.note.domain.repository.InvitationFinisher.wanted()
                 com.pingolin.note.worker.SyncWorker.enqueueImmediateSync(context)
             }
             "reminder", "tickle" -> if (sm.areReminderNotificationsEnabled()) {

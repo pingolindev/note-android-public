@@ -81,7 +81,8 @@ class NoteFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         super.onMessageReceived(message)
         // The dispatcher always sends type="tickle" and carries the event
-        // in `kind` ("reminder" | "share" | "notebook_share" | "sync"), so `kind`
+        // in `kind` ("reminder" | "share" | "notebook_share" | "sync" |
+        // "finish_shares"), so `kind`
         // MUST be branched on first — see [NoteTickleHandler.handle].
         val type = message.data[KEY_TYPE]
         val kind = message.data[KEY_KIND]
@@ -114,6 +115,14 @@ class NoteFirebaseMessagingService : FirebaseMessagingService() {
                 // sync. No notification; data-only messages reach us even in
                 // the background.
                 Log.d(TAG, "Sync tickle — pulling changes")
+                com.pingolin.note.worker.SyncWorker.enqueueImmediateSync(applicationContext)
+            }
+            com.pingolin.note.domain.repository.InvitationFinisher.PUSH_KIND -> {
+                // Someone the owner shared a note with has signed up: the same
+                // silent sync, at whose end the share is finished
+                // (InvitationFinisher). A data-only message; nothing is shown.
+                Log.d(TAG, "Finish-shares tickle — syncing to finish them")
+                com.pingolin.note.domain.repository.InvitationFinisher.wanted()
                 com.pingolin.note.worker.SyncWorker.enqueueImmediateSync(applicationContext)
             }
             "reminder", "tickle" -> {

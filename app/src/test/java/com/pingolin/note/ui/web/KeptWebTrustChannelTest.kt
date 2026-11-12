@@ -154,6 +154,116 @@ class KeptWebTrustChannelTest {
         assertEquals("refused", r.getString("state"))
     }
 
+    // --- The seals the app made finishing invitations (InvitationFinisher) ---
+
+    private val zoe = "2b2b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+    private val ann = "3c3c2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+
+    private fun take(account: String = me, id: Any = 9) =
+        JSONObject().put("op", "takeSeals").put("v", 1).put("account", account).put("id", id).toString()
+
+    private fun clear(upTo: Any?, account: String = me) =
+        JSONObject().put("op", "clearSeals").put("v", 1).put("account", account)
+            .apply { if (upTo != null) put("upTo", upTo) }.put("id", 10).toString()
+
+    @Test
+    fun `takeSeals gives the signed-in account's seals with the id echoed, and deletes nothing`() {
+        store.recordSeal(me, zoe, "cc".repeat(32), "dd".repeat(32), 1_700_000_000_123L)
+        store.recordSeal(other, ann, "ee".repeat(32), "ff".repeat(32), 5L)
+
+        val r = ask(take(account = me.uppercase(), id = 42))!!
+        assertEquals(1, r.getInt("v"))
+        assertEquals("seals", r.getString("state"))
+        assertEquals(me, r.getString("account"))
+        assertEquals(42, r.getInt("id"))
+        val seals = r.getJSONArray("seals")
+        assertEquals(1, seals.length())
+        val seal = seals.getJSONObject(0)
+        assertEquals(zoe, seal.getString("user_id"))
+        assertEquals("cc".repeat(32), seal.getString("sharing_public_key"))
+        assertEquals("dd".repeat(32), seal.getString("signing_public_key"))
+        assertEquals(1_700_000_000_123L, seal.getLong("sealed_at"))
+
+        assertEquals("taking deletes nothing", "seals", ask(take())!!.getString("state"))
+    }
+
+    @Test
+    fun `takeSeals says none when there are none, and unreadable (never none) when they can't be read`() {
+        val none = ask(take())!!
+        assertEquals("none", none.getString("state"))
+        assertEquals(me, none.getString("account"))
+        assertTrue(!none.has("seals"))
+
+        store.keep(me, "{}", null, null)
+        assertEquals("the page's blobs are no seals", "none", ask(take())!!.getString("state"))
+
+        val broken = KeptWebTrustStore { throw IllegalStateException("keystore said no") }
+        val unreadable = ask(take(), s = broken)!!
+        assertEquals("unreadable", unreadable.getString("state"))
+        assertEquals(9, unreadable.getInt("id"))
+        prefs.edit().putString("$me|seals", "garbled").commit()
+        assertEquals("unreadable", ask(take())!!.getString("state"))
+    }
+
+    /** The page's pins after it folded these seals (the person, and the seal's sharing and signing
+     *  keys) and kept them. */
+    private fun keptPinsHolding(vararg people: Triple<String, String, String>) {
+        val pins = JSONObject()
+        for ((p, sharing, signing) in people) pins.put(p, JSONObject().put("sharingPubkeyHex", sharing).put("signingPubkeyHex", signing))
+        store.keep(me, pins.toString(), null, null)
+    }
+
+    private val zoeSealed get() = Triple(zoe, "cc".repeat(32), "dd".repeat(32))
+    private val annSealed get() = Triple(ann, "ee".repeat(32), "ff".repeat(32))
+
+    @Test
+    fun `clearSeals removes the seals up to what was taken, and keeps a later one`() {
+        store.recordSeal(me, zoe, "cc".repeat(32), "dd".repeat(32), 1_000L)
+        store.recordSeal(me, ann, "ee".repeat(32), "ff".repeat(32), 2_000L)
+        keptPinsHolding(zoeSealed, annSealed)
+
+        val r = ask(clear(1_000))!!
+        assertEquals("cleared", r.getString("state"))
+        assertEquals(me, r.getString("account"))
+        assertEquals(10, r.getInt("id"))
+        assertEquals(
+            listOf(KeptWebTrustStore.Seal(ann, "ee".repeat(32), "ff".repeat(32), 2_000L)),
+            (store.seals(me) as KeptWebTrustStore.Seals.Held).seals,
+        )
+        assertEquals("cleared", ask(clear(2_000.5))!!.getString("state"))
+        assertEquals("none", ask(take())!!.getString("state"))
+    }
+
+    /** Review of bb1d05b: a page that clears before its keep of the fold has landed. */
+    @Test
+    fun `clearSeals keeps a seal whose person the kept pins don't hold yet, whatever its time`() {
+        store.recordSeal(me, zoe, "cc".repeat(32), "dd".repeat(32), 1_000L)
+        store.recordSeal(me, ann, "ee".repeat(32), "ff".repeat(32), 1_500L)
+        keptPinsHolding(zoeSealed)
+
+        assertEquals("cleared", ask(clear(2_000))!!.getString("state"))
+        assertEquals(listOf(ann), (store.seals(me) as KeptWebTrustStore.Seals.Held).seals.map { it.userId })
+        assertEquals("seals", ask(take())!!.getString("state"))
+
+        keptPinsHolding(zoeSealed, annSealed)
+        assertEquals("cleared", ask(clear(2_000))!!.getString("state"))
+        assertEquals("none", ask(take())!!.getString("state"))
+    }
+
+    @Test
+    fun `clearSeals refuses another account, a missing or non-numeric upTo, and clears nothing then`() {
+        store.recordSeal(me, zoe, "cc".repeat(32), "dd".repeat(32), 1_000L)
+        store.recordSeal(other, ann, "ee".repeat(32), "ff".repeat(32), 1_000L)
+        assertEquals("refused", ask(clear(5_000, account = other))!!.getString("state"))
+        assertEquals("refused", ask(clear(null))!!.getString("state"))
+        assertEquals("refused", ask(clear("5000"))!!.getString("state"))
+        assertEquals("refused", ask(take(account = other))!!.getString("state"))
+        assertEquals("refused", ask(take(), signedIn = null)!!.getString("state"))
+        assertEquals(1, (store.seals(me) as KeptWebTrustStore.Seals.Held).seals.size)
+        assertEquals(1, (store.seals(other) as KeptWebTrustStore.Seals.Held).seals.size)
+        assertNull("not the note page's main frame", ask(take(), mainFrame = false))
+    }
+
     @Test(timeout = 10_000)
     fun `the wipe's last keep is bounded, even when the page never answers`() = runBlocking {
         assertNull("no document, no keep", RetainedWebView.keepWebTrustNow(500))

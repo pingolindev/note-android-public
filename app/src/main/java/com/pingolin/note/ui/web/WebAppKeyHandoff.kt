@@ -36,9 +36,14 @@ package com.pingolin.note.ui.web
  *
  * A **push, never a pull.** No `@JavascriptInterface` is exposed, so the page
  * has nothing it can call to *ask* for key material. The script writes and
- * returns. It is also injected against an explicit single-origin allowlist —
- * never a wildcard — so the account portal and any other origin the WebView
- * visits never receive it.
+ * returns. It is injected at document start against an explicit single-origin
+ * allowlist — never a wildcard — AND it checks that origin itself, first,
+ * where it runs: the resume path (WebAppActivity.refreshKeyHandoffInPlace)
+ * goes through evaluateJavascript, which has no allowlist and runs in
+ * whatever the main frame shows, the account portal or any page a link led
+ * to. Before the check was in the script, every resume handed the keys to
+ * that page. `location` and its `origin` can't be redefined by a page, so the
+ * check can't be faked from inside it.
  *
  * ## The value contract, verified against both sides
  *
@@ -92,17 +97,27 @@ object WebAppKeyHandoff {
     private fun valid(value: String?): Boolean = value != null && BASE64.matches(value)
 
     /**
+     * An origin as WebAppActivity.originOf gives it: a scheme, `://`, a host,
+     * an optional port. Nothing in it needs escaping, so, as with the keys,
+     * anything else is refused rather than escaped into the script.
+     */
+    private val ORIGIN = Regex("^https?://[A-Za-z0-9.-]+(:[0-9]+)?$")
+
+    /**
      * Returns the script, or null when there is nothing safe to hand over — no
      * keys, or [trustIsOurs] false — in which case the web app boots as it would
      * in any browser and asks for the password. Never returns a partial key set:
      * a vault key without its sharing key would decrypt notes but silently fail
-     * to open anything shared with this user.
+     * to open anything shared with this user. The script does nothing at all in
+     * a document of any origin but [origin] (the note origin); [notifyPage]
+     * calls the page's `__pingolinKeysUpdated` after the writes.
      */
-    fun buildScript(keys: Keys?, trustIsOurs: Boolean): String? {
+    fun buildScript(keys: Keys?, trustIsOurs: Boolean, origin: String, notifyPage: Boolean = false): String? {
         // The page reaches our hosts through the WebView's own network stack: no key goes to it unless that
         // stack's trust is still ours, refusing paths through compromised keys (CompromisedKeyTrustProvider).
         if (!trustIsOurs) return null
         if (keys == null) return null
+        if (!ORIGIN.matches(origin)) return null
         if (!valid(keys.vaultKeyB64) || !valid(keys.sharingPrivB64) || !valid(keys.sharingPubB64)) {
             return null
         }
@@ -121,7 +136,11 @@ object WebAppKeyHandoff {
         // Swallow failures: sessionStorage is unavailable in some WebView
         // configurations, and a thrown exception at document start would take
         // the whole page down rather than degrade to the password prompt.
-        return "(function(){try{var s=window.sessionStorage;$sets}catch(e){}})();"
+        // The page's hook, when asked for ([notifyPage]: a resume), is called
+        // inside the origin check too: another origin is told nothing.
+        val notify = if (notifyPage) "window.__pingolinKeysUpdated&&window.__pingolinKeysUpdated();" else ""
+        return "(function(){if(location.origin!=='$origin')return;" +
+            "try{var s=window.sessionStorage;$sets}catch(e){}$notify})();"
     }
 
     private fun setItem(key: String, value: String): String = "s.setItem('$key','$value');"
