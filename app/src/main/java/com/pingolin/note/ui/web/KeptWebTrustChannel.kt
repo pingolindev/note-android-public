@@ -29,11 +29,17 @@ import org.json.JSONObject
  * `window.pingolinTrust`: the page's kept trust, answered for the account this device is signed in
  * as.
  *
- * The page (the web editor's keptTrust.ts) sends two requests, each a JSON string with a numeric
+ * The page (the web editor's keptTrust.ts) sends these requests, each a JSON string with a numeric
  * `id` that its reply carries back:
  *  - `{ op: 'keptTrust', v: 1, account }` → its copy, 'none', or 'unreadable' (a store that can't
  *    be read is never 'none');
- *  - `{ op: 'keepTrust', v: 1, account, pins, floors, owners }` → 'kept' or 'refused'.
+ *  - `{ op: 'keepTrust', v: 1, account, pins, floors, owners }` → 'kept' or 'refused';
+ *  - `{ op: 'takeSeals', v: 1, account }` → 'seals' with `seals: [{user_id, sharing_public_key,
+ *    signing_public_key, sealed_at}]`, 'none', or 'unreadable': the keys the app sealed finished
+ *    invitations to (InvitationFinisher), which the page folds into its pins. Deletes nothing;
+ *  - `{ op: 'clearSeals', v: 1, account, upTo }` → 'cleared' once the seals with `sealed_at <=
+ *    upTo` (ms) whose fold the kept pins now show (a conflict for that person, or a pin at both
+ *    of the seal's own keys) are gone; any other seal stays. Or 'refused'.
  * Only the note origin's main frame is answered. A message that isn't this contract gets no answer
  * at all; one for another account than the signed-in one, or with none signed in, is refused.
  *
@@ -89,6 +95,23 @@ object KeptWebTrustChannel {
                     }
                 }
                 if (store.keep(me, blobs[0], blobs[1], blobs[2])) reply("kept") else reply("refused")
+            }
+            "takeSeals" -> when (val held = store.seals(me)) {
+                is KeptWebTrustStore.Seals.Held ->
+                    if (held.seals.isEmpty()) {
+                        reply("none") { put("account", me) }
+                    } else {
+                        reply("seals") {
+                            put("account", me)
+                            put("seals", KeptWebTrustStore.sealsJson(held.seals))
+                        }
+                    }
+                KeptWebTrustStore.Seals.Unreadable -> reply("unreadable") { put("account", me) }
+            }
+            "clearSeals" -> {
+                val upTo = (m.opt("upTo") as? Number)?.toDouble()?.takeIf { it.isFinite() }
+                    ?: return reply("refused")
+                if (store.clearSeals(me, upTo)) reply("cleared") { put("account", me) } else reply("refused")
             }
             else -> reply("refused")
         }

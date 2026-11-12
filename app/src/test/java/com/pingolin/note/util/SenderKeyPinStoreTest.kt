@@ -321,4 +321,35 @@ class SenderKeyPinStoreTest {
         assertEquals(SenderKeyPinStore.PinState.NewPinning, s.pin(alice, signB, shareB))
         s.ensureReadable()
     }
+
+    // --- peekPinned: the invitation finisher's read, which never writes ---
+
+    @Test
+    fun `peekPinned reads what a load would read, and writes nothing, where a load writes back`() {
+        val otherSpelling = "sender_pins:${me.uppercase()}"
+        prefs.edit()
+            .putString("sender_pins:$me", blob(alice to Triple(signA, shareA, 200L)))
+            .putString(otherSpelling, blob(aliceHex to Triple(signA, null, 100L)))
+            .commit()
+        val before = prefs.all.toMap()
+
+        val s = store()
+        assertEquals(SenderKeyPinStore.PinRecord(signA, shareA, 100L), s.peekPinned(alice.uppercase(), me))
+        assertNull(s.peekPinned("1a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d", me))
+        assertEquals("nothing written, nothing folded away", before, prefs.all.toMap())
+
+        // A load (any other read) folds and writes back; peekPinned then reads the loaded pins.
+        assertEquals(SenderKeyPinStore.PinRecord(signA, shareA, 100L), s.getPinned(alice))
+        assertFalse(prefs.contains(otherSpelling))
+        assertEquals(SenderKeyPinStore.PinRecord(signA, shareA, 100L), s.peekPinned(alice, me))
+    }
+
+    @Test
+    fun `peekPinned refuses an account that isn't signed in, and pins that can't be read, never reading them as none`() {
+        prefs.edit().putString("sender_pins:$me", blob(alice to Triple(signA, shareA, 1L))).commit()
+        assertThrows(StoreUnreadable::class.java) { store().peekPinned(alice, "1a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d") }
+        prefs.edit().putString("sender_pins:$me", "{not json").commit()
+        assertThrows(StoreUnreadable::class.java) { store().peekPinned(alice, me) }
+        assertEquals("{not json", prefs.getString("sender_pins:$me", null))
+    }
 }

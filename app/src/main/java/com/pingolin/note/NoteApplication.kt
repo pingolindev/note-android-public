@@ -183,6 +183,20 @@ class NoteApplication : Application(), Configuration.Provider {
         // screen (the path an account switch takes after the wipe cancels it)
         // and from BootReceiver after a reboot. Nothing needs it here.
 
+        // The one refresher reads the page's cookie jar before it picks a
+        // refresh token (a later pair of the session there is adopted, never
+        // the session's older refresh token sent: the account portal
+        // refreshes in the page). From process start, not only once the note
+        // screen opens: the sync queued just below, a periodic one in a
+        // process that never shows the page, and any refresh behind the app
+        // lock come first. Posted to main, so CookieManager starts after this
+        // onCreate, never in it; a refresh asking before then waits for it,
+        // briefly (PageSessionJar).
+        com.pingolin.note.util.PageSessionJar.expectInstall()
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            com.pingolin.note.ui.web.WebAppActivity.installPageSessionJar()
+        }
+
         // Start watching connectivity so we can fire an expedited sync
         // the moment Wi-Fi/cellular comes back. Without this the user
         // sometimes waits up to 15 minutes (periodic worker tick) for
@@ -212,9 +226,16 @@ class NoteApplication : Application(), Configuration.Provider {
             // provider load and both Activities. Credentialed, so
             // AuthMePrefetch keys the result to this token and
             // re-checks it before serving.
-            sessionManager.getAccessToken()?.let { token ->
-                AuthMePrefetch.start(BuildConfig.NOTE_API_BASE_URL, token, "PingolinNoteShell", compromisedKeyTrust.socketFactory())
-            }
+            //
+            // Not with a token the cold open refreshes before the page
+            // loads (expired, about to be, or unreadable: ColdOpenSession):
+            // it could only 401, and an answer for it would never be
+            // served, since take() checks the token.
+            sessionManager.getAccessToken()
+                ?.takeUnless { com.pingolin.note.util.AccessTokenExpiry.needsRefresh(it, System.currentTimeMillis() / 1000) }
+                ?.let { token ->
+                    AuthMePrefetch.start(BuildConfig.NOTE_API_BASE_URL, token, "PingolinNoteShell", compromisedKeyTrust.socketFactory())
+                }
         }
     }
 

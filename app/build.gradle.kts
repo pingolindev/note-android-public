@@ -169,6 +169,8 @@ android {
             manifestPlaceholders["authDeepLinkHost"] = "api-auth.pingolindev.com"
             buildConfigField("String", "NOTE_API_BASE_URL", "\"https://note.pingolindev.com/\"")
             buildConfigField("String", "ACCOUNT_BASE_URL", "\"https://account.pingolindev.com/\"")
+            // Track web: the account deletion's erasure chain goes through it (ShellNavigation).
+            buildConfigField("String", "TRACK_WEB_BASE_URL", "\"https://track.pingolindev.com/\"")
             buildConfigField("String", "ENVIRONMENT", "\"DEV\"")
         }
         create("prod") {
@@ -180,6 +182,8 @@ android {
             manifestPlaceholders["authDeepLinkHost"] = "api-auth.pingolin.com"
             buildConfigField("String", "NOTE_API_BASE_URL", "\"https://note.pingolin.com/\"")
             buildConfigField("String", "ACCOUNT_BASE_URL", "\"https://account.pingolin.com/\"")
+            // Track web: the account deletion's erasure chain goes through it (ShellNavigation).
+            buildConfigField("String", "TRACK_WEB_BASE_URL", "\"https://track.pingolin.com/\"")
             buildConfigField("String", "ENVIRONMENT", "\"PROD\"")
             // There is no certificate-pinning flag: see the note in
             // di/AppModule.kt (Cloudflare Universal SSL rotates the issuing CA).

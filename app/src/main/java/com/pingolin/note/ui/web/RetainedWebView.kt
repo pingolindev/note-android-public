@@ -22,6 +22,8 @@ import android.content.Context
 import android.content.MutableContextWrapper
 import android.os.SystemClock
 import android.view.ViewGroup
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import kotlin.coroutines.resume
@@ -111,6 +113,19 @@ object RetainedWebView {
     private var trustChannelInstalled = false
 
     /**
+     * The page session the parked WebView's requests go through ([idleClient]), handed over by
+     * WebAppActivity ([parkedSessionOnce]). Built from process-wide parts only, it holds no
+     * Activity, and it outlives any one WebView: a session, not a document.
+     */
+    @Volatile
+    private var parkedSession: PageSession? = null
+
+    /** Set [parkedSession] from [make], once per process. Main thread. */
+    internal fun parkedSessionOnce(make: () -> PageSession) {
+        if (parkedSession == null) parkedSession = make()
+    }
+
+    /**
      * A client that captures nothing, parked on the WebView while no Activity
      * hosts it. The real clients are anonymous objects inside WebAppActivity's
      * onCreate and hold the Activity (they call finish() and read its state);
@@ -140,6 +155,28 @@ object RetainedWebView {
             discard()
             return true
         }
+
+        /**
+         * Parked, nothing is shown and nothing can be opened: a main-frame navigation to a page
+         * that isn't the app's (ShellNavigation) is cancelled, where on screen it would open in
+         * the browser.
+         */
+        override fun shouldOverrideUrlLoading(v: WebView, req: WebResourceRequest): Boolean =
+            ShellNavigation.decide(req.url.scheme, req.url.host, req.url.port, req.isForMainFrame) ==
+                ShellNavigation.Where.OUTSIDE
+
+        /**
+         * Parked, the page keeps running: its timers, and with them its account check once a
+         * minute (accountRecheck.ts), which on a dead cookie's 401 wipes and reloads to the
+         * account portal's password prompt, all while nobody is looking. Its requests get the
+         * same answers as on screen (ShellRequests, on the WebView's IO thread): the web app's own
+         * code from the APK, so a document loaded while parked is never the deployed build handed
+         * the keys, and the page's API on a good session (PageSession). No sign-in here: a refused
+         * session is answered with the 503 the page takes for a passing failure, and the next
+         * open, finding no session, signs in.
+         */
+        override fun shouldInterceptRequest(v: WebView, req: WebResourceRequest): WebResourceResponse? =
+            ShellRequests.answer(req, WebAppActivity.shellServerFor(v.context), parkedSession, parked = true)
     }
 
     /**

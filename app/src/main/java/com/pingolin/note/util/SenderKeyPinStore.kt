@@ -134,7 +134,7 @@ class SenderKeyPinStore internal constructor(
      * back canonical and read back before any blob it came from is removed; a write that fails
      * leaves them all as they were, and the next load folds them again.
      */
-    private fun readNamespace(userId: String): Folded {
+    private fun readNamespace(userId: String, writeBack: Boolean = true): Folded {
         val key = pinsKeyFor(userId)
         val (own, spellings, legacy) = StoreUnreadable.reading(STORE) {
             val all = prefs.all
@@ -148,7 +148,7 @@ class SenderKeyPinStore internal constructor(
         if (sources.isEmpty()) return Folded(emptyMap(), changed = false)
         val folded = StoreUnreadable.reading(STORE) { fold(*sources.map { JSONObject(it) }.toTypedArray()) }
         val moved = spellings.keys + listOfNotNull(KEY_PINS.takeIf { legacy != null })
-        if (folded.changed || moved.isNotEmpty()) {
+        if (writeBack && (folded.changed || moved.isNotEmpty())) {
             val kept = runCatching {
                 prefs.edit().putString(key, encode(folded.pins)).commit() &&
                     prefs.getString(key, null)?.let { fold(JSONObject(it)).pins } == folded.pins
@@ -235,6 +235,21 @@ class SenderKeyPinStore internal constructor(
         val key = AccountIds.parse(ownerId)
         ensureLoaded(accountFor(forAccount))
         return pins[key]
+    }
+
+    /**
+     * [getPinned] for a reader that must never change this store (the invitation finisher's veto,
+     * InvitationFinisher): the pins already loaded for [forAccount], or its blobs read and folded
+     * as a load reads them but neither written back nor cached. Never pins anything. Throws
+     * [StoreUnreadable] when the store can't be read, or when [forAccount] is no longer the
+     * account signed in; [AccountIds.NotAnAccountId] for an [ownerId] that is no UUID.
+     */
+    @Synchronized
+    fun peekPinned(ownerId: String, forAccount: String): PinRecord? {
+        val key = AccountIds.parse(ownerId)
+        val uid = accountFor(forAccount) ?: return null
+        if (loaded && loadedForUserId == uid) return pins[key]
+        return readNamespace(uid, writeBack = false).pins[key]
     }
 
     /**
