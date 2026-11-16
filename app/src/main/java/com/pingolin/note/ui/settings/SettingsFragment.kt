@@ -234,9 +234,9 @@ class SettingsFragment : Fragment() {
         refreshNotificationDetailLabel()
         binding.btnNotificationDetail.setOnClickListener {
             val labels = arrayOf(
-                "Titles and content — “Groceries: milk, eggs…”",
-                "Titles only — “Groceries”",
-                "Generic — “Tap to view”",
+                "Titles and content: “Groceries: milk, eggs…”",
+                "Titles only: “Groceries”",
+                "Generic: “Tap to view”",
             )
             val values = arrayOf(
                 SessionManager.NOTIF_DETAIL_FULL,
@@ -373,7 +373,7 @@ class SettingsFragment : Fragment() {
      * Live push status line. During an in-flight provider switch the persisted
      * pushType still reflects the OLD provider until the async endpoint/token
      * lands; when [pendingProvider] is supplied (from a Pending registration
-     * result) we reflect the target so the status reads "UnifiedPush:
+     * result) we reflect the target so the status reads "UnifiedPush ·
      * registration pending" instead of the provider we're leaving.
      */
     private fun updatePushStatus(
@@ -401,7 +401,7 @@ class SettingsFragment : Fragment() {
         }
         binding.tvPushStatus.text = when {
             label == null -> "Status: Not configured"
-            !primaryOk -> "Status: $label — registration pending"
+            !primaryOk -> "Status: $label · registration pending"
             else -> "Status: $label"
         }
         // Green check only once the provider is actually live (token/endpoint
@@ -432,7 +432,7 @@ class SettingsFragment : Fragment() {
             // arrives. Report the three states separately.
             binding.tvDistributorStatus.text = when {
                 hasEndpoint && sessionManager.isPushTokenSynced() -> "Registered"
-                hasEndpoint -> "Endpoint received — completing registration…"
+                hasEndpoint -> "Finishing registration…"
                 else -> "${distributors.size} distributor(s) available"
             }
         }
@@ -492,7 +492,7 @@ class SettingsFragment : Fragment() {
                 // that reads like a failure.
                 val waiting = when (result.provider) {
                     PushNotificationManager.Provider.UNIFIEDPUSH ->
-                        "Waiting for your distributor to provide an endpoint…"
+                        "Waiting for your distributor app…"
                     else -> "Finishing registration…"
                 }
                 Toast.makeText(requireContext(), waiting, Toast.LENGTH_SHORT).show()
@@ -816,7 +816,7 @@ class SettingsFragment : Fragment() {
 
         MaterialAlertDialogBuilder(requireContext())
             .setTitle("Set backup PIN")
-            .setMessage("A 4-digit PIN is required as a backup in case biometrics aren't available (e.g., a new fingerprint enrolled or sensor failure).")
+            .setMessage("A 4-digit PIN is needed as a backup for when biometrics aren't available.")
             .setView(pinDialogContainer(pinEditText))
             .setPositiveButton("Next") { _, _ ->
                 val pin = readAndClearPin(pinEditText)
@@ -960,13 +960,13 @@ class SettingsFragment : Fragment() {
                     // AND track data). Someone deleting from Note has no way to know
                     // their location history goes with it unless this dialog says so,
                     // before the button.
-                    "\n\nThis is your Pingolin account, which every Pingolin app shares. Deleting it deletes " +
-                    "your data in all of them - Pingolin Note and Pingolin Track - not just this app." +
+                    "\n\nThis is your Pingolin account for every Pingolin app. Deleting it deletes " +
+                    "your data in both Pingolin Track and Pingolin Note." +
                     // Stated before the button, because afterwards there is no account
                     // left to read it in. We cancel what we can; an App Store
                     // subscription only Apple can stop, at the customer's request.
-                    "\n\nThis also cancels your subscription. If you bought it through the App Store on an " +
-                    "iPhone or iPad, only you can cancel that - in your Apple account settings."
+                    "\n\nDeleting your account cancels any subscription you pay for through us. An App Store " +
+                    "subscription is different: only you can cancel it, in your Apple account settings."
             )
             .setPositiveButton("Delete") { _, _ ->
                 showPasswordDialogForDeletion()
@@ -1002,7 +1002,7 @@ class SettingsFragment : Fragment() {
             .setTitle("Confirm Deletion")
             // Set on the BUILDER, not on the created dialog: a dialog that also
             // carries a custom view drops a message applied afterwards.
-            .setMessage("Please enter your password to confirm account deletion.")
+            .setMessage("Enter your password to confirm.")
             .setView(container)
             .setPositiveButton("Delete Account") { _, _ ->
                 val editable = passwordEditText.text

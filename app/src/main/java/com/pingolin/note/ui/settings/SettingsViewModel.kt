@@ -627,8 +627,7 @@ class SettingsViewModel @Inject constructor(
          * Track Android app's and the iPhone's): the server's sentence is
          * never shown. */
         internal const val UNSPENT_CREDIT_TEXT = "Deleting your account destroys the credit on it, and it can't be " +
-            "returned afterwards because the record goes with the account. Write to help@support.pingolin.com " +
-            "to have it refunded first, or delete anyway."
+            "returned afterwards. Write to help@support.pingolin.com to have it refunded first, or delete anyway."
 
         /** A deletion refused for a reason the person can't act on (the Track Android
          * app's words).
@@ -706,7 +705,7 @@ internal fun deletionNoticeText(
     // if the server ever widens that flag, say something rather than
     // showing a bare "Your account is deleted, but".
     if (parts.isEmpty()) {
-        return "Your account is deleted. Your subscription may need attention — write to " +
+        return "Your account is deleted. Your subscription may need attention. Write to " +
             "help@support.pingolin.com and we will check it."
     }
     return "Your account is deleted.\n\n" + parts.joinToString("\n\n")
@@ -721,9 +720,8 @@ internal fun deletionNoticeText(
  */
 internal fun erasureNoticeText(dataErasure: String): String? = when (dataErasure) {
     "queued" ->
-        "Your notes and locations could not be erased at that moment — one of the services " +
-            "was unreachable. The erasure is recorded and will be retried until it goes " +
-            "through. If you want to know that it has, write to privacy@mail.pingolin.com."
+        "Your notes and locations couldn't be erased just now. It will be retried until it goes " +
+            "through. To check that it has, write to privacy@mail.pingolin.com."
     "failed" ->
         "We could not record the erasure of your notes and locations, so it may not have " +
             "happened. Write to privacy@mail.pingolin.com and we will complete it."

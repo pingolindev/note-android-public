@@ -958,7 +958,7 @@ class AuthViewModelTest {
         val settled = vm.uiState.first { it != AuthUiState.Loading && it != AuthUiState.Idle }
 
         assertEquals(
-            AuthUiState.Error("Please verify your email address first. Open the link we sent you, then sign in again."),
+            AuthUiState.Error("Verify your email address first. Open the link we sent you, then sign in again."),
             settled,
         )
         verify(exactly = 0) { rateLimiter.recordFailedAttempt(any()) }
