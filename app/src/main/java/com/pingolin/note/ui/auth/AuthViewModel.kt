@@ -104,7 +104,7 @@ class AuthViewModel @Inject constructor(
      */
     fun login(email: String, password: String) {
         if (email.isBlank() || password.isBlank()) {
-            _uiState.value = AuthUiState.Error("Please enter email and password")
+            _uiState.value = AuthUiState.Error("Enter your email and password")
             return
         }
 
@@ -727,7 +727,7 @@ class AuthViewModel @Inject constructor(
      *  handler (note://verify-email?token=…). */
     fun verifyEmail(token: String) {
         if (token.isBlank()) {
-            _uiState.value = AuthUiState.Error("Invalid verification token")
+            _uiState.value = AuthUiState.Error("Invalid verification link")
             return
         }
         _uiState.value = AuthUiState.Loading
@@ -1052,7 +1052,7 @@ class AuthViewModel @Inject constructor(
          * (auth's 403 `email_not_verified`): the same line as the Track
          * apps. */
         internal const val EMAIL_NOT_VERIFIED =
-            "Please verify your email address first. Open the link we sent you, then sign in again."
+            "Verify your email address first. Open the link we sent you, then sign in again."
 
         // The code step's refusals, in this app's words: the same lines as the Track
         // Android app.

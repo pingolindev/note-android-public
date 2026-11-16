@@ -8,7 +8,7 @@
     <string name="premium_feature_storage_title">10 GB attachment storage</string>
     <string name="premium_feature_storage_body">Free plan caps at 100 MB total.</string>
     <string name="premium_feature_sharing_title">Share notes and notebooks</string>
-    <string name="premium_feature_sharing_body">End-to-end encrypted, per recipient.</string>
+    <string name="premium_feature_sharing_body">Only the people you share with can read them.</string>
     <string name="premium_feature_reminders_title">Reminders</string>
     <string name="premium_feature_reminders_body">Push and email notifications on a schedule.</string>
     <!-- Informational only — no tappable external-purchase route (Play anti-steering), matching the iOS
@@ -17,7 +17,7 @@
     <string name="premium_sheet_dismiss">Got it</string>
 
     <!-- Widgets -->
-    <string name="widget_quick_capture_description">Create notes and checklists instantly — even from the lock screen</string>
+    <string name="widget_quick_capture_description">Create notes and checklists, even from the lock screen</string>
     <string name="widget_note_list_description">Scrollable list of your recent and pinned notes</string>
     <string name="widget_single_note_description">Display a single note on your home screen</string>
     <string name="widget_quick_capture_label">Quick Capture</string>
@@ -77,14 +77,14 @@
     <string name="auth_switch_to_sign_up">Don\'t have an account? Sign Up</string>
     <string name="auth_no_browser">No browser available</string>
     <string name="auth_verify_title">Verify Your Email</string>
-    <string name="auth_verify_subtitle">We\'ve sent a verification link to your email address. Please check your inbox and click the link to verify your account.</string>
+    <string name="auth_verify_subtitle">We\'ve sent a verification link to your email address. Check your inbox and tap the link to verify your account.</string>
     <string name="auth_open_email_app">Open Email App</string>
     <string name="auth_resend_verification">Resend Verification Email</string>
     <string name="auth_waiting_for_verification">Waiting for verification…</string>
     <string name="auth_skip_for_now">Skip for now</string>
     <string name="auth_invalid_verification_link">Invalid verification link</string>
     <string name="auth_no_email_app">No email app found</string>
-    <string name="auth_email_verified">Email verified successfully!</string>
+    <string name="auth_email_verified">Email verified</string>
     <string name="auth_2fa_title">Two-factor authentication</string>
     <string name="auth_2fa_message">Enter the 6-digit code from your authenticator app, or one of your backup codes.</string>
     <string name="auth_2fa_hint">Code</string>
@@ -118,7 +118,7 @@
     <string name="lock_capture_remove_item">Remove item</string>
     <string name="lock_capture_save">Save</string>
     <string name="lock_capture_discard">Discard</string>
-    <string name="lock_capture_saved">Saved — syncs after unlock</string>
+    <string name="lock_capture_saved">Saved. It syncs after you unlock.</string>
     <string name="lock_capture_save_failed">Couldn\'t save. Sign in to the app first.</string>
 
     <string name="device_sheet_subtitle">Set on this device only.</string>
