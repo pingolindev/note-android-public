@@ -30,7 +30,7 @@ class DeleteSaysTrackCirclesEndTest {
 
     @Test
     fun `the delete warning says owned Track circles end, after what Note loses and before the button`() {
-        val settings = File("src/main/java/com/pingolin/note/ui/settings/SettingsFragment.kt").readText()
+        val settings = File("src/main/java/com/pingolin/note/ui/settings/DeleteAccountFlow.kt").readText()
         val warning = settings.substringAfter("private fun showDeleteAccountConfirmation()").substringBefore("\n    private fun ")
         val notes = warning.indexOf("All your notes, notebooks, attachments, shares and reminders will be permanently deleted.")
         val circles = warning.indexOf(

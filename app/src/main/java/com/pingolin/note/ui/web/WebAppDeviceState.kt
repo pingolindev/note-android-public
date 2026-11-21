@@ -154,7 +154,7 @@ object WebAppDeviceState {
             // a support request needs is legible without a tap.
             row("about", "About", device.appVersion.orEmpty(), SECTION_ABOUT),
             row("diagnostics", "Diagnostics", "", SECTION_DIAGNOSTICS),
-            row("account", "Account", "", SECTION_ACCOUNT),
+            row("account", "Delete account", "", SECTION_ACCOUNT),
         )
 
         return JSONObject().apply {

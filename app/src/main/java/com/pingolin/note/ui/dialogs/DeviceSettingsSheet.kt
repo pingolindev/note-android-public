@@ -78,19 +78,16 @@ class DeviceSettingsSheet : ExpandedBottomSheetDialogFragment() {
                 WebAppDeviceState.SECTION_NOTIFICATIONS -> R.string.device_sheet_title_notifications
                 WebAppDeviceState.SECTION_DIAGNOSTICS -> R.string.device_sheet_title_diagnostics
                 WebAppDeviceState.SECTION_ABOUT -> R.string.device_sheet_title_about
-                WebAppDeviceState.SECTION_ACCOUNT -> R.string.device_sheet_title_account
                 else -> R.string.device_sheet_title_security
             },
         )
         // The subtitle is per-section: a single "Set on this device
-        // only." is true of app lock and push transport, and flatly
-        // wrong above a button that deletes the account on every
-        // device. A reassurance that is false in one section is worse
-        // than no reassurance at all.
+        // only." is true of app lock and push transport, not of About. A
+        // reassurance that is false in one section is worse than none.
+        // (Account deletion has no sheet: DeleteAccountFlow opens it.)
         binding.tvDeviceSheetSubtitle.setText(
             when (section) {
                 WebAppDeviceState.SECTION_ABOUT -> R.string.device_sheet_subtitle_about
-                WebAppDeviceState.SECTION_ACCOUNT -> R.string.device_sheet_subtitle_account
                 else -> R.string.device_sheet_subtitle
             },
         )
@@ -133,7 +130,6 @@ class DeviceSettingsSheet : ExpandedBottomSheetDialogFragment() {
             WebAppDeviceState.SECTION_NOTIFICATIONS,
             WebAppDeviceState.SECTION_DIAGNOSTICS,
             WebAppDeviceState.SECTION_ABOUT,
-            WebAppDeviceState.SECTION_ACCOUNT,
         )
 
         fun show(fm: FragmentManager, section: String) {

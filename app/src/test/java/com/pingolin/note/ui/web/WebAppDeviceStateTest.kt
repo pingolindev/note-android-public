@@ -91,6 +91,20 @@ class WebAppDeviceStateTest {
         assertEquals(WebAppDeviceState.SECTION_ACCOUNT, s["account"])
     }
 
+    /**
+     * The account row says what it does. The page names it "Delete account"
+     * itself whatever the shell sends; this keeps the shell honest too.
+     */
+    @Test
+    fun `the account row is labelled Delete account`() {
+        val arr = WebAppDeviceState.snapshot(base).getJSONArray("rows")
+        val labels = (0 until arr.length()).associate {
+            val o = arr.getJSONObject(it)
+            o.getString("id") to o.getString("label")
+        }
+        assertEquals("Delete account", labels["account"])
+    }
+
     /** The version is the row's VALUE, so it reads without a tap. */
     @Test
     fun `about carries the app version as its value`() {
