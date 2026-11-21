@@ -436,6 +436,15 @@ class WebAppActivity : AppCompatActivity() {
                 }
                 if (req.url.scheme == SETTINGS_SCHEME) {
                     val section = req.url.getQueryParameter("section")
+                    // The page's "Delete account" row opens the deletion
+                    // warning itself. It used to open a sheet holding just
+                    // that one button. Like every other section this only
+                    // OPENS: nothing is deleted without the warning, the
+                    // password and a second confirmation, all native.
+                    if (section == WebAppDeviceState.SECTION_ACCOUNT) {
+                        com.pingolin.note.ui.settings.DeleteAccountFlow.start(supportFragmentManager)
+                        return true
+                    }
                     // A named device group opens as a SHEET over this page:
                     // the notes stay behind it and it is dismissed, not
                     // navigated away from. Starting another Activity for one

@@ -126,12 +126,10 @@
     <string name="device_sheet_title_notifications">Notifications on this device</string>
     <string name="device_sheet_title_diagnostics">Diagnostics</string>
     <string name="device_sheet_title_about">About</string>
-    <string name="device_sheet_title_account">Account</string>
     <!-- Per-section subtitles. The single "Set on this device only." is true of
          app lock and push transport and flatly wrong above account deletion,
          which applies to every device the account is signed in on. -->
     <string name="device_sheet_subtitle_about">Version and open source licences.</string>
-    <string name="device_sheet_subtitle_account">These apply to your whole account, on every device.</string>
     <string name="settings_version">Version %1$s (%2$d)</string>
     <!-- Notification channel + reminder copy, defined once here. -->
     <string name="notification_channel_reminders">Reminders</string>
